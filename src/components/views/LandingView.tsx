@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import { useAuth } from '../../context/AuthContext';
+import { getAuthErrorMessage } from '../../lib/firebase';
 import { GlobalLegalFooter } from '../legal/GlobalLegalFooter';
 import { CookieConsentBanner } from '../legal/CookieConsentBanner';
 import {
@@ -93,7 +94,7 @@ export const LandingView: React.FC = () => {
       setShowAuthModal(false);
       setCurrentView('dashboard');
     } catch (err: any) {
-      setAuthError(err.message || 'Authentication error');
+      setAuthError(getAuthErrorMessage(err));
     } finally {
       setAuthLoading(false);
     }
@@ -101,12 +102,13 @@ export const LandingView: React.FC = () => {
 
   const handleGoogleSignIn = async () => {
     setAuthLoading(true);
+    setAuthError('');
     try {
       await signInWithGoogle();
       setShowAuthModal(false);
       setCurrentView('dashboard');
     } catch (err: any) {
-      setAuthError('Google sign in error');
+      setAuthError(getAuthErrorMessage(err));
     } finally {
       setAuthLoading(false);
     }

@@ -14,6 +14,7 @@ import {
   QuickNote,
   QuickNoteColor,
 } from '../types';
+import { LegalDocId, ALL_LEGAL_LINKS } from '../data/legalData';
 import {
   getStoredMaps,
   saveStoredMaps,
@@ -74,13 +75,22 @@ export type WorkspaceView =
   | 'templates'
   | 'study_mode'
   | 'presentation'
-  | 'settings';
+  | 'settings'
+  | 'admin'
+  | 'legal'
+  | 'user_manual';
 
 export type SyncStatus = 'saved' | 'saving' | 'synced' | 'syncing' | 'offline' | 'error';
 
 interface WorkspaceContextType {
   currentView: WorkspaceView;
   setCurrentView: (view: WorkspaceView) => void;
+  legalDocId: LegalDocId;
+  setLegalDocId: (docId: LegalDocId) => void;
+  openLegal: (docId?: LegalDocId) => void;
+  userManualCategory: string;
+  setUserManualCategory: (cat: string) => void;
+  openUserManual: (category?: string, article?: string) => void;
   activeMap: MindMap | null;
   nodes: MindNode[];
   edges: MindEdge[];
@@ -131,6 +141,7 @@ interface WorkspaceContextType {
   toggleNodeCollapse: (nodeId: string) => void;
   convertNodeToTask: (nodeId: string, priority?: 'low' | 'medium' | 'high' | 'urgent') => TaskItem;
   addTask: (task: Omit<TaskItem, 'id' | 'createdAt' | 'updatedAt'>) => TaskItem;
+  addMultipleTasks: (tasks: Omit<TaskItem, 'id' | 'createdAt' | 'updatedAt'>[]) => TaskItem[];
   updateTask: (taskId: string, updates: Partial<TaskItem>) => void;
   deleteTask: (taskId: string) => void;
   addGoal: (goal: Omit<GoalItem, 'id' | 'createdAt' | 'updatedAt'>) => GoalItem;
@@ -175,7 +186,65 @@ interface WorkspaceContextType {
 const WorkspaceContext = createContext<WorkspaceContextType | undefined>(undefined);
 
 export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentView, setCurrentView] = useState<WorkspaceView>('landing');
+  // Initialize view from URL if matching a legal route or user manual route
+  const getInitialRouteMatch = (): { view: WorkspaceView; legalDocId: LegalDocId; manualCategory: string } => {
+    if (typeof window === 'undefined') return { view: 'landing', legalDocId: 'privacy', manualCategory: 'getting-started' };
+    const path = window.location.pathname;
+    if (path.startsWith('/help/user-manual') || path.startsWith('/user-manual')) {
+      const hash = window.location.hash.replace('#', '');
+      return { view: 'user_manual', legalDocId: 'privacy', manualCategory: hash || 'getting-started' };
+    }
+    const match = ALL_LEGAL_LINKS.find((l) => l.route === path);
+    if (match) {
+      return { view: 'legal', legalDocId: match.id as LegalDocId, manualCategory: 'getting-started' };
+    }
+    return { view: 'landing', legalDocId: 'privacy', manualCategory: 'getting-started' };
+  };
+
+  const initialRoute = getInitialRouteMatch();
+  const [currentView, setCurrentView] = useState<WorkspaceView>(initialRoute.view);
+  const [legalDocId, setLegalDocId] = useState<LegalDocId>(initialRoute.legalDocId);
+  const [userManualCategory, setUserManualCategory] = useState<string>(initialRoute.manualCategory);
+
+  // Listen to popstate for legal, manual and standard routes
+  useEffect(() => {
+    const handlePop = () => {
+      const path = window.location.pathname;
+      if (path.startsWith('/help/user-manual') || path.startsWith('/user-manual')) {
+        const hash = window.location.hash.replace('#', '');
+        setUserManualCategory(hash || 'getting-started');
+        setCurrentView('user_manual');
+        return;
+      }
+      const match = ALL_LEGAL_LINKS.find((l) => l.route === path);
+      if (match) {
+        setLegalDocId(match.id as LegalDocId);
+        setCurrentView('legal');
+      }
+    };
+    window.addEventListener('popstate', handlePop);
+    return () => window.removeEventListener('popstate', handlePop);
+  }, []);
+
+  const openLegal = useCallback((docId: LegalDocId = 'privacy') => {
+    setLegalDocId(docId);
+    setCurrentView('legal');
+    const targetLink = ALL_LEGAL_LINKS.find((l) => l.id === docId);
+    if (targetLink && typeof window !== 'undefined') {
+      window.history.pushState({}, '', targetLink.route);
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  const openUserManual = useCallback((category: string = 'getting-started', article?: string) => {
+    setUserManualCategory(category);
+    setCurrentView('user_manual');
+    if (typeof window !== 'undefined') {
+      const targetHash = article || (category !== 'getting-started' ? category : '');
+      window.history.pushState({}, '', `/help/user-manual${targetHash ? '#' + targetHash : ''}`);
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
   const [allMaps, setAllMaps] = useState<MindMap[]>([]);
   const [allTasks, setAllTasks] = useState<TaskItem[]>([]);
   const [allGoals, setAllGoals] = useState<GoalItem[]>([]);
@@ -319,18 +388,22 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     // 1. Subscribe to Maps
     const unsubMaps = subscribeToUserCloudMaps(activeUserId, (cloudMaps) => {
-      if (cloudMaps) {
+      if (cloudMaps && Array.isArray(cloudMaps)) {
         setAllMaps((prev) => {
           const mapDict = new Map<string, MindMap>();
           // Preserve local items
-          prev.forEach((m) => mapDict.set(m.id, m));
+          (prev || []).forEach((m) => {
+            if (m && m.id) mapDict.set(m.id, m);
+          });
           // Apply cloud items
-          cloudMaps.forEach((cm) => {
-            const existing = mapDict.get(cm.map.id);
-            if (!existing || (cm.map.updatedAt || 0) >= (existing.updatedAt || 0)) {
-              mapDict.set(cm.map.id, cm.map);
-              saveStoredNodes(cm.nodes, cm.map.id, activeUserId);
-              saveStoredEdges(cm.edges, cm.map.id, activeUserId);
+          (cloudMaps || []).forEach((cm) => {
+            if (cm && cm.map && cm.map.id) {
+              const existing = mapDict.get(cm.map.id);
+              if (!existing || (cm.map.updatedAt || 0) >= (existing.updatedAt || 0)) {
+                mapDict.set(cm.map.id, cm.map);
+                saveStoredNodes(cm.nodes || [], cm.map.id, activeUserId);
+                saveStoredEdges(cm.edges || [], cm.map.id, activeUserId);
+              }
             }
           });
           const merged = Array.from(mapDict.values());
@@ -344,11 +417,15 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     // 2. Subscribe to Folders
     const unsubFolders = subscribeToUserCloudFolders(activeUserId, (cloudFolders) => {
-      if (cloudFolders) {
+      if (cloudFolders && Array.isArray(cloudFolders)) {
         setAllFolders((prev) => {
           const folderDict = new Map<string, FolderItem>();
-          prev.forEach((f) => folderDict.set(f.id, f));
-          cloudFolders.forEach((cf) => folderDict.set(cf.id, cf));
+          (prev || []).forEach((f) => {
+            if (f && f.id) folderDict.set(f.id, f);
+          });
+          (cloudFolders || []).forEach((cf) => {
+            if (cf && cf.id) folderDict.set(cf.id, cf);
+          });
           const merged = Array.from(folderDict.values());
           saveStoredFolders(merged, activeUserId);
           return merged;
@@ -360,11 +437,15 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     // 3. Subscribe to Tasks
     const unsubTasks = subscribeToUserCloudTasks(activeUserId, (cloudTasks) => {
-      if (cloudTasks) {
+      if (cloudTasks && Array.isArray(cloudTasks)) {
         setAllTasks((prev) => {
           const taskDict = new Map<string, TaskItem>();
-          prev.forEach((t) => taskDict.set(t.id, t));
-          cloudTasks.forEach((ct) => taskDict.set(ct.id, ct));
+          (prev || []).forEach((t) => {
+            if (t && t.id) taskDict.set(t.id, t);
+          });
+          (cloudTasks || []).forEach((ct) => {
+            if (ct && ct.id) taskDict.set(ct.id, ct);
+          });
           const merged = Array.from(taskDict.values());
           saveStoredTasks(merged, activeUserId);
           return merged;
@@ -376,11 +457,15 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     // 4. Subscribe to Goals
     const unsubGoals = subscribeToUserCloudGoals(activeUserId, (cloudGoals) => {
-      if (cloudGoals) {
+      if (cloudGoals && Array.isArray(cloudGoals)) {
         setAllGoals((prev) => {
           const goalDict = new Map<string, GoalItem>();
-          prev.forEach((g) => goalDict.set(g.id, g));
-          cloudGoals.forEach((cg) => goalDict.set(cg.id, cg));
+          (prev || []).forEach((g) => {
+            if (g && g.id) goalDict.set(g.id, g);
+          });
+          (cloudGoals || []).forEach((cg) => {
+            if (cg && cg.id) goalDict.set(cg.id, cg);
+          });
           const merged = Array.from(goalDict.values());
           saveStoredGoals(merged, activeUserId);
           return merged;
@@ -392,11 +477,15 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     // 5. Subscribe to Quick Notes
     const unsubNotes = subscribeToUserCloudQuickNotes(activeUserId, (cloudNotes) => {
-      if (cloudNotes) {
+      if (cloudNotes && Array.isArray(cloudNotes)) {
         setQuickNotes((prev) => {
           const noteDict = new Map<string, QuickNote>();
-          prev.forEach((n) => noteDict.set(n.id, n));
-          cloudNotes.forEach((cn) => noteDict.set(cn.id, cn));
+          (prev || []).forEach((n) => {
+            if (n && n.id) noteDict.set(n.id, n);
+          });
+          (cloudNotes || []).forEach((cn) => {
+            if (cn && cn.id) noteDict.set(cn.id, cn);
+          });
           const merged = Array.from(noteDict.values());
           saveStoredQuickNotes(merged, activeUserId);
           return merged;
@@ -431,10 +520,17 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return updated;
   };
 
-  // Check URL Hash for shared maps (#share-TOKEN)
+  // Check URL Hash and Path for admin and shared maps (#share-TOKEN, #admin, /admin)
   useEffect(() => {
     const checkHashRoute = async () => {
       const hash = window.location.hash;
+      const pathname = window.location.pathname;
+
+      if (pathname.startsWith('/admin') || hash === '#admin' || hash.startsWith('#admin/')) {
+        setCurrentView('admin');
+        return;
+      }
+
       if (hash.startsWith('#share-')) {
         const token = hash.replace('#share-', '').trim();
         if (token) {
@@ -614,12 +710,48 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     setActiveMap(targetMap);
     setActiveLayout(targetMap.layout || 'left-to-right');
-    const loadedNodes = getStoredNodes(mapId, activeUserId);
-    const loadedEdges = getStoredEdges(mapId, activeUserId);
+    let loadedNodes = getStoredNodes(mapId, activeUserId);
+    let loadedEdges = getStoredEdges(mapId, activeUserId);
+
+    // If map has no nodes (e.g. fresh blank map), initialize central root node immediately
+    if (!loadedNodes || loadedNodes.length === 0) {
+      const rootId = 'node-' + Math.random().toString(36).substr(2, 9);
+      const rootNode: MindNode = {
+        id: rootId,
+        mapId: targetMap.id,
+        parentId: null,
+        title: targetMap.title || 'Central Topic',
+        description: 'Double-click to edit or press Tab to add child idea',
+        type: 'standard',
+        x: -120,
+        y: -37,
+        width: 240,
+        height: 74,
+        style: {
+          shape: 'rounded',
+          backgroundColor: '#4f46e5',
+          textColor: '#ffffff',
+          borderColor: '#4338ca',
+          borderWidth: 2,
+          fontSize: 'lg',
+          fontWeight: 'bold',
+          textAlign: 'center',
+          shadow: 'md',
+        },
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      loadedNodes = [rootNode];
+      loadedEdges = [];
+      saveStoredNodes(loadedNodes, mapId, activeUserId);
+      saveStoredEdges(loadedEdges, mapId, activeUserId);
+    }
+
     setNodes(loadedNodes);
     setEdges(loadedEdges);
-    setSelectedNodeId(null);
-    setSelectedNodeIds([]);
+    const initialSelected = loadedNodes[0]?.id || null;
+    setSelectedNodeId(initialSelected);
+    setSelectedNodeIds(initialSelected ? [initialSelected] : []);
     setPan({ x: 0, y: 0 });
     setZoom(1);
     setHistory([{ nodes: loadedNodes, edges: loadedEdges }]);
@@ -652,7 +784,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         fontSize: 'lg',
         fontWeight: 'bold',
         textAlign: 'center',
-        shadow: 'lg',
+        shadow: 'md',
       },
       createdAt: now,
       updatedAt: now,
@@ -661,7 +793,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const newMap: MindMap = {
       id: newMapId,
       ownerId: activeUserId,
-      title: title || 'Untitled Mind Map',
+      title: title && title !== 'Central Topic' ? title : 'Untitled Mind Map',
       category: 'General',
       visibility: 'private',
       isFavorite: false,
@@ -1228,6 +1360,27 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return newTask;
   };
 
+  const addMultipleTasks = (tasks: Omit<TaskItem, 'id' | 'createdAt' | 'updatedAt'>[]): TaskItem[] => {
+    const createdTasks: TaskItem[] = tasks.map((t, idx) => ({
+      ...t,
+      id: 'task-' + Math.random().toString(36).substr(2, 9) + '-' + idx,
+      userId: activeUserId,
+      createdAt: Date.now() + idx,
+      updatedAt: Date.now() + idx,
+    }));
+    const next = [...createdTasks, ...allTasks];
+    setAllTasks(next);
+    saveStoredTasks(next, activeUserId);
+    // Cloud persist
+    createdTasks.forEach((t) => {
+      performCloudOperation(
+        () => saveTaskToCloud(activeUserId, t),
+        'Failed to create task in cloud'
+      );
+    });
+    return createdTasks;
+  };
+
   const updateTask = (taskId: string, updates: Partial<TaskItem>) => {
     const next = allTasks.map((t) => (t.id === taskId ? { ...t, ...updates, updatedAt: Date.now() } : t));
     setAllTasks(next);
@@ -1663,6 +1816,12 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       value={{
         currentView,
         setCurrentView,
+        legalDocId,
+        setLegalDocId,
+        openLegal,
+        userManualCategory,
+        setUserManualCategory,
+        openUserManual,
         activeMap,
         nodes,
         edges,
@@ -1713,6 +1872,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         toggleNodeCollapse,
         convertNodeToTask,
         addTask,
+        addMultipleTasks,
         updateTask,
         deleteTask,
         addGoal,

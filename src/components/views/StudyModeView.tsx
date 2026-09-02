@@ -79,8 +79,8 @@ export const StudyModeView: React.FC = () => {
 
   const calculateScore = () => {
     let score = 0;
-    quizQuestions.forEach((q, idx) => {
-      if (selectedAnswers[idx] === q.correctAnswer) {
+    (quizQuestions || []).forEach((q, idx) => {
+      if (q && selectedAnswers[idx] === q.correctAnswer) {
         score++;
       }
     });

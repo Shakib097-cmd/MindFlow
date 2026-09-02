@@ -666,31 +666,36 @@ export async function executeTwoWaySync(
   // 2. Merge Maps & Nodes & Edges
   const mergedMapsMap = new Map<string, MindMap>();
   const cloudMapLookup = new Map<string, CloudMapPayload>();
-  cloudMaps.forEach((cm) => cloudMapLookup.set(cm.map.id, cm));
+  (cloudMaps || []).forEach((cm) => {
+    if (cm && cm.map && cm.map.id) cloudMapLookup.set(cm.map.id, cm);
+  });
 
   // Process Local Maps
-  for (const localMap of local.maps) {
+  for (const localMap of (local.maps || [])) {
+    if (!localMap || !localMap.id) continue;
     const cloudEntry = cloudMapLookup.get(localMap.id);
     if (!cloudEntry) {
       // Local only -> push to Cloud
-      const nodes = local.getNodesForMap(localMap.id);
-      const edges = local.getEdgesForMap(localMap.id);
+      const nodes = local.getNodesForMap(localMap.id) || [];
+      const edges = local.getEdgesForMap(localMap.id) || [];
       await saveMapToCloud(verifiedId, localMap, nodes, edges);
       mergedMapsMap.set(localMap.id, localMap);
       stats.mapsSynced++;
     } else {
       // Both exist -> Compare updatedAt / version
       const localUpdated = localMap.updatedAt || 0;
-      const cloudUpdated = cloudEntry.map.updatedAt || cloudEntry.updatedAt || 0;
+      const cloudUpdated = cloudEntry.map?.updatedAt || cloudEntry.updatedAt || 0;
       if (localUpdated >= cloudUpdated) {
         // Local is newer -> push to Cloud
-        const nodes = local.getNodesForMap(localMap.id);
-        const edges = local.getEdgesForMap(localMap.id);
+        const nodes = local.getNodesForMap(localMap.id) || [];
+        const edges = local.getEdgesForMap(localMap.id) || [];
         await saveMapToCloud(verifiedId, localMap, nodes, edges);
         mergedMapsMap.set(localMap.id, localMap);
       } else {
         // Cloud is newer -> adopt Cloud
-        mergedMapsMap.set(localMap.id, cloudEntry.map);
+        if (cloudEntry.map) {
+          mergedMapsMap.set(localMap.id, cloudEntry.map);
+        }
         stats.conflictsResolved++;
       }
       stats.mapsSynced++;
@@ -700,16 +705,21 @@ export async function executeTwoWaySync(
 
   // Any remaining Cloud Maps not in Local -> Adopt from Cloud
   for (const [, cloudEntry] of cloudMapLookup) {
-    mergedMapsMap.set(cloudEntry.map.id, cloudEntry.map);
-    stats.mapsSynced++;
+    if (cloudEntry && cloudEntry.map && cloudEntry.map.id) {
+      mergedMapsMap.set(cloudEntry.map.id, cloudEntry.map);
+      stats.mapsSynced++;
+    }
   }
 
   // 3. Merge Folders
   const mergedFoldersMap = new Map<string, FolderItem>();
   const cloudFolderLookup = new Map<string, FolderItem>();
-  cloudFolders.forEach((cf) => cloudFolderLookup.set(cf.id, cf));
+  (cloudFolders || []).forEach((cf) => {
+    if (cf && cf.id) cloudFolderLookup.set(cf.id, cf);
+  });
 
-  for (const localFolder of local.folders) {
+  for (const localFolder of (local.folders || [])) {
+    if (!localFolder || !localFolder.id) continue;
     const cloudFolder = cloudFolderLookup.get(localFolder.id);
     if (!cloudFolder) {
       await saveFolderToCloud(verifiedId, localFolder);
@@ -729,16 +739,21 @@ export async function executeTwoWaySync(
     }
   }
   for (const [, cf] of cloudFolderLookup) {
-    mergedFoldersMap.set(cf.id, cf);
-    stats.foldersSynced++;
+    if (cf && cf.id) {
+      mergedFoldersMap.set(cf.id, cf);
+      stats.foldersSynced++;
+    }
   }
 
   // 4. Merge Tasks
   const mergedTasksMap = new Map<string, TaskItem>();
   const cloudTaskLookup = new Map<string, TaskItem>();
-  cloudTasks.forEach((ct) => cloudTaskLookup.set(ct.id, ct));
+  (cloudTasks || []).forEach((ct) => {
+    if (ct && ct.id) cloudTaskLookup.set(ct.id, ct);
+  });
 
-  for (const localTask of local.tasks) {
+  for (const localTask of (local.tasks || [])) {
+    if (!localTask || !localTask.id) continue;
     const cloudTask = cloudTaskLookup.get(localTask.id);
     if (!cloudTask) {
       await saveTaskToCloud(verifiedId, localTask);
@@ -758,16 +773,21 @@ export async function executeTwoWaySync(
     }
   }
   for (const [, ct] of cloudTaskLookup) {
-    mergedTasksMap.set(ct.id, ct);
-    stats.tasksSynced++;
+    if (ct && ct.id) {
+      mergedTasksMap.set(ct.id, ct);
+      stats.tasksSynced++;
+    }
   }
 
   // 5. Merge Goals
   const mergedGoalsMap = new Map<string, GoalItem>();
   const cloudGoalLookup = new Map<string, GoalItem>();
-  cloudGoals.forEach((cg) => cloudGoalLookup.set(cg.id, cg));
+  (cloudGoals || []).forEach((cg) => {
+    if (cg && cg.id) cloudGoalLookup.set(cg.id, cg);
+  });
 
-  for (const localGoal of local.goals) {
+  for (const localGoal of (local.goals || [])) {
+    if (!localGoal || !localGoal.id) continue;
     const cloudGoal = cloudGoalLookup.get(localGoal.id);
     if (!cloudGoal) {
       await saveGoalToCloud(verifiedId, localGoal);
@@ -787,16 +807,21 @@ export async function executeTwoWaySync(
     }
   }
   for (const [, cg] of cloudGoalLookup) {
-    mergedGoalsMap.set(cg.id, cg);
-    stats.goalsSynced++;
+    if (cg && cg.id) {
+      mergedGoalsMap.set(cg.id, cg);
+      stats.goalsSynced++;
+    }
   }
 
   // 6. Merge Quick Notes
   const mergedNotesMap = new Map<string, QuickNote>();
   const cloudNoteLookup = new Map<string, QuickNote>();
-  cloudNotes.forEach((cn) => cloudNoteLookup.set(cn.id, cn));
+  (cloudNotes || []).forEach((cn) => {
+    if (cn && cn.id) cloudNoteLookup.set(cn.id, cn);
+  });
 
-  for (const localNote of local.quickNotes) {
+  for (const localNote of (local.quickNotes || [])) {
+    if (!localNote || !localNote.id) continue;
     const cloudNote = cloudNoteLookup.get(localNote.id);
     if (!cloudNote) {
       await saveQuickNoteToCloud(verifiedId, localNote);
@@ -816,8 +841,10 @@ export async function executeTwoWaySync(
     }
   }
   for (const [, cn] of cloudNoteLookup) {
-    mergedNotesMap.set(cn.id, cn);
-    stats.notesSynced++;
+    if (cn && cn.id) {
+      mergedNotesMap.set(cn.id, cn);
+      stats.notesSynced++;
+    }
   }
 
   return {

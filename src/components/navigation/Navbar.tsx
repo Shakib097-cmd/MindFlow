@@ -29,6 +29,7 @@ import {
   Check,
   Loader2,
   AlertCircle,
+  BookOpen,
 } from 'lucide-react';
 import { AIUsageProgressBar } from '../common/AIUsageProgressBar';
 import { UsageMeter } from '../common/UsageMeter';
@@ -57,6 +58,8 @@ export const Navbar: React.FC = () => {
     syncError,
     syncStatus,
     syncNow,
+    openLegal,
+    openUserManual,
   } = useWorkspace();
 
   const { profile, signOut } = useAuth();
@@ -341,12 +344,14 @@ export const Navbar: React.FC = () => {
               <div className="w-full h-full bg-indigo-100 flex items-center justify-center text-[10px] font-bold text-indigo-700">
                 {profile?.name
                   ? profile.name
-                      .split(' ')
-                      .map((n) => n[0])
+                      .trim()
+                      .split(/\s+/)
+                      .filter(Boolean)
+                      .map((n) => n[0] || '')
                       .join('')
                       .toUpperCase()
-                      .slice(0, 2)
-                  : 'JD'}
+                      .slice(0, 2) || 'MF'
+                  : 'MF'}
               </div>
             )}
           </button>
@@ -396,6 +401,33 @@ export const Navbar: React.FC = () => {
                 >
                   <Crown className="w-3.5 h-3.5 text-amber-500" />
                   Subscription Plans
+                </button>
+                <button
+                  id="user-menu-user-manual-btn"
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    openUserManual('getting-started');
+                  }}
+                  className="w-full text-left px-4 py-1.5 text-xs hover:bg-indigo-50 text-indigo-700 flex items-center gap-2 font-semibold cursor-pointer"
+                >
+                  <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
+                  User Manual & Docs
+                </button>
+                <button
+                  id="user-menu-admin-btn"
+                  onClick={() => setCurrentView('admin')}
+                  className="w-full text-left px-4 py-1.5 text-xs hover:bg-indigo-50 text-indigo-700 flex items-center gap-2 font-semibold cursor-pointer"
+                >
+                  <Crown className="w-3.5 h-3.5 text-indigo-600" />
+                  Admin Console
+                </button>
+                <button
+                  id="user-menu-legal-btn"
+                  onClick={() => openLegal('privacy')}
+                  className="w-full text-left px-4 py-1.5 text-xs hover:bg-slate-50 text-slate-700 flex items-center gap-2 cursor-pointer"
+                >
+                  <FileText className="w-3.5 h-3.5 text-slate-500" />
+                  Legal & Policies
                 </button>
               </div>
 

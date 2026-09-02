@@ -20,11 +20,20 @@ import {
   CheckCircle2,
   AlertCircle,
   Cloud,
+  FileText,
+  ExternalLink,
 } from 'lucide-react';
 
 export const SettingsModal: React.FC = () => {
-  const { isSettingsOpen, setIsSettingsOpen, setIsPricingOpen, usage, activeLayout, changeMapLayout } =
-    useWorkspace();
+  const {
+    isSettingsOpen,
+    setIsSettingsOpen,
+    setIsPricingOpen,
+    usage,
+    activeLayout,
+    changeMapLayout,
+    openLegal,
+  } = useWorkspace();
   const { profile, user } = useAuth();
   const [activeTab, setActiveTab] = useState<'usage' | 'account' | 'database' | 'preferences'>('usage');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -223,7 +232,16 @@ export const SettingsModal: React.FC = () => {
             <div className="space-y-5">
               <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200">
                 <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-base">
-                  {profile?.name ? profile.name.slice(0, 2).toUpperCase() : 'MF'}
+                  {profile?.name
+                    ? profile.name
+                        .trim()
+                        .split(/\s+/)
+                        .filter(Boolean)
+                        .map((n) => n[0] || '')
+                        .join('')
+                        .toUpperCase()
+                        .slice(0, 2) || 'MF'
+                    : 'MF'}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-bold text-slate-900 truncate">
@@ -258,6 +276,62 @@ export const SettingsModal: React.FC = () => {
                   Includes {usage?.aiGenerationsLimit || 500} monthly AI generations, unlimited canvas
                   nodes, 6 auto-layout algorithms, and cloud persistence.
                 </p>
+              </div>
+
+              <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-indigo-600" />
+                    Legal & Compliance Policies
+                  </span>
+                  <button
+                    onClick={() => {
+                      setIsSettingsOpen(false);
+                      openLegal('privacy');
+                    }}
+                    className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+                  >
+                    View All <ExternalLink className="w-3 h-3" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <button
+                    onClick={() => {
+                      setIsSettingsOpen(false);
+                      openLegal('privacy');
+                    }}
+                    className="text-left p-2 rounded-xl bg-white border border-slate-200 hover:border-indigo-200 hover:bg-indigo-50/40 text-slate-700 hover:text-indigo-700 font-medium transition-colors cursor-pointer"
+                  >
+                    Privacy Policy
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsSettingsOpen(false);
+                      openLegal('terms');
+                    }}
+                    className="text-left p-2 rounded-xl bg-white border border-slate-200 hover:border-indigo-200 hover:bg-indigo-50/40 text-slate-700 hover:text-indigo-700 font-medium transition-colors cursor-pointer"
+                  >
+                    Terms of Service
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsSettingsOpen(false);
+                      openLegal('data-protection');
+                    }}
+                    className="text-left p-2 rounded-xl bg-white border border-slate-200 hover:border-indigo-200 hover:bg-indigo-50/40 text-slate-700 hover:text-indigo-700 font-medium transition-colors cursor-pointer"
+                  >
+                    GDPR & CCPA
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsSettingsOpen(false);
+                      openLegal('contact');
+                    }}
+                    className="text-left p-2 rounded-xl bg-white border border-slate-200 hover:border-indigo-200 hover:bg-indigo-50/40 text-slate-700 hover:text-indigo-700 font-medium transition-colors cursor-pointer"
+                  >
+                    Legal Inquiry Form
+                  </button>
+                </div>
               </div>
             </div>
           )}

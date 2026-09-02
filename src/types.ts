@@ -132,8 +132,14 @@ export interface FolderItem {
 
 export type SyncStatus = 'synced' | 'saving' | 'syncing' | 'offline' | 'error' | 'saved';
 
-export type TaskStatus = 'todo' | 'in_progress' | 'done';
+export type TaskStatus = 'backlog' | 'todo' | 'in_progress' | 'review' | 'done';
 export type PriorityLevel = 'low' | 'medium' | 'high' | 'urgent';
+
+export interface SubtaskItem {
+  id: string;
+  title: string;
+  completed: boolean;
+}
 
 export interface TaskItem {
   id: string;
@@ -148,6 +154,9 @@ export interface TaskItem {
   mapTitle?: string;
   nodeId?: string;
   nodeTitle?: string;
+  subtasks?: SubtaskItem[];
+  estimatedHours?: number;
+  tags?: string[];
   completedAt?: number;
   createdAt: number;
   updatedAt: number;

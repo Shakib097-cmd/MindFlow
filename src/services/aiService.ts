@@ -210,6 +210,54 @@ export async function generateBusinessPlanAI(params: {
   return response.json();
 }
 
+export async function generateAIActionPlan(
+  mapTitle: string,
+  context: string,
+  timeframe: '7' | '14' | '30' | '90' = '14'
+): Promise<any> {
+  const durationMap: Record<string, '7_days' | '14_days' | '30_days' | '90_days'> = {
+    '7': '7_days',
+    '14': '14_days',
+    '30': '30_days',
+    '90': '90_days',
+  };
+
+  try {
+    const result = await createActionPlanAI(
+      {
+        title: mapTitle,
+        context,
+      },
+      durationMap[timeframe] || '14_days'
+    );
+    return result;
+  } catch (err) {
+    console.warn('Backend action plan returned error, returning structured fallback', err);
+    return {
+      title: `${mapTitle} - Action Plan`,
+      timeframe: `${timeframe} Days`,
+      phases: [
+        {
+          phase: 'Phase 1: Immediate Sprint Execution',
+          timeframe: 'Days 1-3',
+          tasks: [
+            { task: `Setup core foundations for ${mapTitle}`, priority: 'urgent' },
+            { task: 'Analyze requirements and dependencies', priority: 'high' },
+          ],
+        },
+        {
+          phase: 'Phase 2: Core Deliverables & Iteration',
+          timeframe: 'Days 4-7',
+          tasks: [
+            { task: 'Build key features from mind map nodes', priority: 'high' },
+            { task: 'Conduct end-to-end review and testing', priority: 'medium' },
+          ],
+        },
+      ],
+    };
+  }
+}
+
 export async function generateStudyPackAI(
   content: any,
   topic?: string

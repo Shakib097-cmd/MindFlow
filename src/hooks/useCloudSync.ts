@@ -328,7 +328,7 @@ export function useCloudSync({
           updatedAt: Date.now(),
         };
 
-        Object.entries(partial).forEach(([key, val]) => {
+        Object.entries(partial || {}).forEach(([key, val]) => {
           if (val !== undefined) {
             mapUpdatePayload[`map.${key}`] = val;
           }

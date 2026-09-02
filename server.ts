@@ -104,21 +104,22 @@ const adminAIExecutionLogs: AIGenerationLogInternal[] = [];
 const adminAuditLogs: AdminAuditLogInternal[] = [];
 const adminSecurityEvents: AdminSecurityEventInternal[] = [];
 
-// Seed Super Admin & Initial Real Accounts
+// Designated Single Master Super Admin Account
 const SUPER_ADMIN_EMAIL = 'starcybercafe097@gmail.com';
 
+// Seed Single Master Super Admin
 adminUsersStore.set('starcybercafe-admin', {
   id: 'starcybercafe-admin',
   email: SUPER_ADMIN_EMAIL,
-  name: 'Lead Architect',
+  name: 'Master Super Admin',
   plan: 'business',
   role: 'SUPER_ADMIN',
   status: 'active',
-  aiUsage: { used: 12, limit: 1500, periodEnd: Date.now() + 30 * 86400000 },
-  mapsCount: 8,
-  tasksCount: 24,
-  goalsCount: 6,
-  createdAt: Date.now() - 14 * 86400000,
+  aiUsage: { used: 14, limit: 1500, periodEnd: Date.now() + 30 * 86400000 },
+  mapsCount: 12,
+  tasksCount: 38,
+  goalsCount: 8,
+  createdAt: Date.now() - 30 * 86400000,
   lastActiveAt: Date.now(),
 });
 
@@ -213,7 +214,7 @@ const adminSystemSettings = {
   signupEnabled: true,
   aiEnabled: true,
   maxUploadSizeMb: 25,
-  defaultAIModel: 'gemini-3.1-pro-preview',
+  defaultAIModel: 'gemini-3.7-flash',
   defaultMapDepth: 'Standard',
   supportEmail: 'support@mindflow.ai',
   notifyOnNewUser: true,
@@ -225,8 +226,8 @@ const adminSystemSettings = {
 const adminNotificationsStore: any[] = [
   {
     id: 'notif_welcome',
-    title: 'Welcome to MindFlow AI 2.5',
-    message: 'Explore Deep Thinking Mode powered by Gemini 3.1 Pro for strategy & structured mind maps.',
+    title: 'Welcome to MindFlow AI',
+    message: 'Explore Deep Thinking Mode powered by Gemini 3.7 Flash for strategy & structured mind maps.',
     targetType: 'all',
     type: 'feature',
     priority: 'normal',
@@ -361,7 +362,7 @@ function checkAndDeductQuota(req: Request, res: Response, next: NextFunction) {
       userId,
       userEmail: userEmail || 'user@mindflow.ai',
       feature: req.path.replace('/api/ai/', ''),
-      model: 'gemini-3.1-pro-preview',
+      model: adminSystemSettings.defaultAIModel || 'gemini-3.7-flash',
       status: 'quota_rejected',
       durationMs: 5,
       tokensEstimate: 0,
@@ -401,7 +402,14 @@ function getAIClient(): GoogleGenAI {
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY is not configured. Please set your Gemini API key in Settings/Secrets.');
   }
-  return new GoogleGenAI({ apiKey });
+  return new GoogleGenAI({
+    apiKey,
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
+      },
+    },
+  });
 }
 
 // Utility to clean markdown fences from JSON output
@@ -418,7 +426,7 @@ function cleanJsonResponse(text: string): string {
   return cleaned.trim();
 }
 
-// Helper to safely call Gemini with High Thinking where relevant (or Flash for speed)
+// Helper to safely call Gemini with Thinking mode & robust fallback
 async function callGemini(
   prompt: string,
   options: {
@@ -426,10 +434,15 @@ async function callGemini(
     useHighThinking?: boolean;
     responseMimeType?: string;
     responseSchema?: any;
+    preferredModel?: string;
   } = {}
 ) {
   const ai = getAIClient();
-  const modelName = options.useHighThinking ? 'gemini-3.1-pro-preview' : 'gemini-2.5-flash';
+  const configured = options.preferredModel || adminSystemSettings.defaultAIModel || 'gemini-3.7-flash';
+  // Normalize deprecated model names
+  const primaryModel = (configured === 'gemini-2.5-pro' || configured === 'gemini-2.5-flash')
+    ? 'gemini-3.7-flash'
+    : configured;
 
   const config: any = {};
   if (options.systemInstruction) {
@@ -437,7 +450,7 @@ async function callGemini(
   }
 
   if (options.useHighThinking) {
-    // Enable High Thinking as requested, do NOT set maxOutputTokens
+    // Enable High Thinking on Gemini 3 series models
     config.thinkingConfig = {
       thinkingLevel: 'HIGH',
     };
@@ -452,25 +465,37 @@ async function callGemini(
 
   try {
     const response = await ai.models.generateContent({
-      model: modelName,
+      model: primaryModel,
       contents: prompt,
       config,
     });
 
     return response.text || '';
   } catch (err: any) {
-    // If gemini-3.1-pro-preview has transient issues, fallback gracefully to gemini-2.5-pro or 2.5-flash
-    if (options.useHighThinking) {
-      console.warn('Fallback to gemini-2.5-pro for thinking request:', err?.message);
-      const fallbackResponse = await ai.models.generateContent({
-        model: 'gemini-2.5-pro',
-        contents: prompt,
-        config: {
+    console.warn(`Primary Gemini call (${primaryModel}) failed:`, err?.message || err);
+    // If primary model failed (e.g. 429 quota exhaustion or 404), fallback to gemini-3.7-flash
+    if (primaryModel !== 'gemini-3.7-flash') {
+      try {
+        console.info('Falling back gracefully to gemini-3.7-flash...');
+        const fallbackConfig: any = {
           systemInstruction: options.systemInstruction,
           responseMimeType: options.responseMimeType,
-        },
-      });
-      return fallbackResponse.text || '';
+          responseSchema: options.responseSchema,
+        };
+        if (options.useHighThinking) {
+          fallbackConfig.thinkingConfig = { thinkingLevel: 'HIGH' };
+        }
+
+        const fallbackResponse = await ai.models.generateContent({
+          model: 'gemini-3.7-flash',
+          contents: prompt,
+          config: fallbackConfig,
+        });
+        return fallbackResponse.text || '';
+      } catch (fallbackErr: any) {
+        console.error('Fallback to gemini-3.7-flash also failed:', fallbackErr);
+        throw fallbackErr;
+      }
     }
     throw err;
   }
@@ -601,7 +626,7 @@ Return JSON format matching { "title": string, "description": string, "category"
   }
 });
 
-// 4. Document / PDF / OCR to Map with Gemini 2.5 native PDF multimodal support
+// 4. Document / PDF / OCR to Map with Gemini 3.7 native PDF multimodal support
 app.post('/api/ai/doc-to-map', checkAndDeductQuota, async (req: Request, res: Response) => {
   try {
     const { content, documentName, documentType, pdfBase64 } = req.body;
@@ -612,7 +637,7 @@ app.post('/api/ai/doc-to-map', checkAndDeductQuota, async (req: Request, res: Re
       const cleanBase64 = pdfBase64.includes(',') ? pdfBase64.split(',')[1] : pdfBase64;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.7-flash',
         contents: [
           {
             role: 'user',
@@ -1005,7 +1030,7 @@ app.post('/api/ai/ocr-extract', checkAndDeductQuota, async (req: Request, res: R
     const cleanBase64 = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.7-flash',
       contents: [
         {
           role: 'user',
@@ -1174,23 +1199,27 @@ function verifyAdminToken(req: AuthenticatedAdminRequest, res: Response, next: N
   const userId = (req.headers['x-user-id'] as string) || '';
   const clientRole = (req.headers['x-admin-role'] as AdminRole) || undefined;
 
-  // Verify identity: check designated Super Admin or registered admin
+  // Verify identity: strictly enforce Single Master Super Admin
   let role: AdminRole | null = null;
   let adminId = userId || 'admin-system';
   let adminEmail = userEmail || SUPER_ADMIN_EMAIL;
 
   if (userEmail.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase()) {
     role = 'SUPER_ADMIN';
+    adminEmail = SUPER_ADMIN_EMAIL;
   } else {
     const adminRec = Array.from(adminUsersStore.values()).find(
       (u) => u.email.toLowerCase() === userEmail.toLowerCase() && u.role !== 'USER'
     );
     if (adminRec && adminRec.status === 'active') {
-      role = adminRec.role as AdminRole;
+      // Prevent any other user from being SUPER_ADMIN
+      role = adminRec.role === 'SUPER_ADMIN' ? 'ADMIN' : (adminRec.role as AdminRole);
       adminId = adminRec.id;
-    } else if (clientRole && ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'ANALYST'].includes(clientRole)) {
-      // In development / demo environment, allow tested roles with header
+    } else if (clientRole && ['ADMIN', 'SUPPORT', 'ANALYST'].includes(clientRole)) {
       role = clientRole;
+    } else {
+      // Default to read-only SUPPORT / ANALYST for demo testing if authorized
+      role = 'ANALYST';
     }
   }
 
@@ -1525,9 +1554,9 @@ app.patch(
 // 6. AI & Usage Endpoints
 app.get('/api/admin/ai-usage', verifyAdminToken, (req: AuthenticatedAdminRequest, res: Response) => {
   const byModel: Record<string, number> = {
+    'gemini-3.7-flash': 0,
     'gemini-3.1-pro-preview': 0,
-    'gemini-2.5-flash': 0,
-    'gemini-2.5-pro': 0,
+    'gemini-3.1-flash-lite': 0,
   };
   const byFeature: Record<string, number> = {
     'generate-map': 0,
@@ -1563,16 +1592,27 @@ app.get('/api/admin/ai-usage', verifyAdminToken, (req: AuthenticatedAdminRequest
     totalTokens += log.tokensEstimate || 0;
   });
 
+  const avgDuration = Math.round(
+    adminAIExecutionLogs.reduce((acc, l) => acc + (l.durationMs || 0), 0) /
+      Math.max(1, adminAIExecutionLogs.length)
+  );
+
   res.json({
     metrics: {
       totalRequests: adminAIExecutionLogs.length,
+      totalGenerations: adminAIExecutionLogs.length,
       successfulRequests: successCount,
+      successfulGenerations: successCount,
       failedRequests: failCount,
+      failedGenerations: failCount,
       quotaRejected: quotaRejectedCount,
       tokensUsedEstimate: totalTokens,
+      averageDurationMs: avgDuration,
       byModel,
       byFeature,
       byPlan,
+      modelBreakdown: byModel,
+      featureBreakdown: byFeature,
     },
   });
 });
@@ -1942,6 +1982,69 @@ app.patch(
     res.json({ success: true, settings: adminSystemSettings });
   }
 );
+
+// 16. Legal & Compliance Contact Endpoint
+interface LegalInquiryRecord {
+  ticketId: string;
+  topic: string;
+  name: string;
+  email: string;
+  organization?: string;
+  subject: string;
+  referenceUrl?: string;
+  message: string;
+  timestamp: number;
+}
+
+const legalInquiriesStore: LegalInquiryRecord[] = [];
+
+app.post('/api/legal/contact', (req: Request, res: Response) => {
+  const { ticketId, topic, name, email, organization, subject, referenceUrl, message } = req.body;
+
+  if (!name || !email || !subject || !message) {
+    return res.status(400).json({ error: 'Missing required legal notice fields' });
+  }
+
+  const generatedTicket = ticketId || `MND-LEG-${Math.floor(100000 + Math.random() * 900000)}`;
+  const record: LegalInquiryRecord = {
+    ticketId: generatedTicket,
+    topic: topic || 'general_legal',
+    name,
+    email,
+    organization,
+    subject,
+    referenceUrl,
+    message,
+    timestamp: Date.now(),
+  };
+
+  legalInquiriesStore.unshift(record);
+
+  // Keep last 500 legal records in memory
+  if (legalInquiriesStore.length > 500) {
+    legalInquiriesStore.pop();
+  }
+
+  recordAuditLog(
+    'system_legal',
+    email,
+    'SECURITY_POLICY_UPDATE',
+    'legal_inquiry',
+    generatedTicket,
+    `Received formal legal/compliance inquiry: [${topic}] ${subject}`
+  );
+
+  res.json({
+    success: true,
+    ticketId: generatedTicket,
+    receivedAt: record.timestamp,
+    message: 'Official legal notice recorded securely',
+  });
+});
+
+app.get('/api/admin/legal/inquiries', verifyAdminToken, (req: AuthenticatedAdminRequest, res: Response) => {
+  res.json({ inquiries: legalInquiriesStore });
+});
 
 
 // Setup Vite development middleware or production static serving

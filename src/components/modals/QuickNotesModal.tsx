@@ -80,11 +80,11 @@ export const QuickNotesModal: React.FC = () => {
   // Keep target map in sync
   useEffect(() => {
     if (activeMap?.id) {
-      setTargetMapForAppend(activeMap.id);
-    } else if (allMaps.length > 0 && !targetMapForAppend) {
-      setTargetMapForAppend(allMaps[0].id);
+      setTargetMapForAppend((prev) => (prev !== activeMap.id ? activeMap.id : prev));
+    } else if (allMaps.length > 0) {
+      setTargetMapForAppend((prev) => (prev ? prev : allMaps[0].id));
     }
-  }, [activeMap, allMaps, targetMapForAppend]);
+  }, [activeMap?.id, allMaps.length]);
 
   // Global Esc key & Cmd+Enter
   useEffect(() => {

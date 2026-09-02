@@ -62,7 +62,7 @@ export const AIAssistantDrawer: React.FC = () => {
 
   const handleApplyAllSuggestions = () => {
     if (!selectedNode) return;
-    suggestions.forEach((item) => {
+    (suggestions || []).forEach((item) => {
       addNodeChild(selectedNode.id, item, 'idea');
     });
     setSuggestions([]);
@@ -81,16 +81,20 @@ export const AIAssistantDrawer: React.FC = () => {
         4
       );
 
-      generated.forEach((sub: any) => {
-        addNodeChild(selectedNode.id, sub.title, sub.type || 'idea');
+      const items = Array.isArray(generated) ? generated : [];
+
+      items.forEach((sub: any) => {
+        if (sub && sub.title) {
+          addNodeChild(selectedNode.id, sub.title, sub.type || 'idea');
+        }
       });
 
       setChatHistory((prev) => [
         ...prev,
         {
           sender: 'ai',
-          text: `Expanded "${selectedNode.title}" with 4 new nodes.`,
-          suggestions: generated.map((s: any) => s.title),
+          text: `Expanded "${selectedNode.title}" with ${items.length} new nodes.`,
+          suggestions: items.map((s: any) => s.title).filter(Boolean),
         },
       ]);
       recordUsage('ai');

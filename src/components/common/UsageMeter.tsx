@@ -108,10 +108,6 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
         (error) => {
           handleFirestoreError(error, OperationType.GET, docPath);
           setIsLoading(false);
-          // Fall back to context usage if available
-          if (contextUsage) {
-            setUsageData(contextUsage);
-          }
         }
       );
 
@@ -121,7 +117,7 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
       setIsLoading(false);
       return () => {};
     }
-  }, [effectiveUserId, effectivePlan, contextUsage]);
+  }, [effectiveUserId, effectivePlan]);
 
   // Calculations
   const currentUsage = usageData || contextUsage || getDefaultUsageForUser(effectiveUserId, effectivePlan);

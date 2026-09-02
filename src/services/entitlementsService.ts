@@ -84,7 +84,7 @@ export function canCreateMap(currentMapsCount: number, plan: PlanType = 'free'):
     return {
       allowed: false,
       remaining: 0,
-      reason: `Maximum maps reached (${currentMapsCount}/${limits.mapsLimit}) on ${plan.toUpperCase()} plan. Upgrade for higher capacity.`,
+      reason: `Maximum maps reached (${currentMapsCount}/${limits.mapsLimit}) on ${(plan || 'free').toUpperCase()} plan. Upgrade for higher capacity.`,
     };
   }
   return { allowed: true, remaining };

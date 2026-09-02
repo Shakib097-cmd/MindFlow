@@ -13,14 +13,14 @@ export const TemplatesView: React.FC = () => {
   const categories = ['All', 'Strategy', 'Business', 'Study', 'Engineering', 'Marketing', 'Personal'];
 
   const filtered = TEMPLATES.filter((tpl) => {
-    if (selectedCategory !== 'All' && tpl.category.toLowerCase() !== selectedCategory.toLowerCase()) {
+    if (selectedCategory !== 'All' && (tpl.category || '').toLowerCase() !== selectedCategory.toLowerCase()) {
       return false;
     }
     if (
       search.trim() &&
-      !tpl.title.toLowerCase().includes(search.toLowerCase()) &&
-      !tpl.description.toLowerCase().includes(search.toLowerCase()) &&
-      !tpl.tags.some((t) => t.toLowerCase().includes(search.toLowerCase()))
+      !(tpl.title || '').toLowerCase().includes(search.toLowerCase()) &&
+      !(tpl.description || '').toLowerCase().includes(search.toLowerCase()) &&
+      !(tpl.tags || []).some((t) => (t || '').toLowerCase().includes(search.toLowerCase()))
     ) {
       return false;
     }
@@ -84,6 +84,60 @@ export const TemplatesView: React.FC = () => {
 
       {/* Templates Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+        {/* Blank Canvas Fast Card */}
+        {selectedCategory === 'All' && !search.trim() && (
+          <div
+            id="template-blank-canvas-card"
+            onClick={() => createNewMap('Central Topic')}
+            className="group bg-gradient-to-b from-indigo-50/70 to-white rounded-2xl border-2 border-dashed border-indigo-200 hover:border-indigo-500 hover:shadow-lg transition-all p-5 flex flex-col justify-between cursor-pointer"
+          >
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-12 h-12 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold shadow-sm group-hover:scale-105 transition-transform">
+                  <Plus className="w-6 h-6" />
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800">
+                  Instant Blank
+                </span>
+              </div>
+
+              <h3 className="font-bold text-slate-900 text-base mb-1 group-hover:text-indigo-600 transition-colors">
+                Blank Mind Map
+              </h3>
+              <p className="text-xs text-slate-500 line-clamp-3 leading-relaxed mb-4">
+                Start with a single central node on an infinite canvas and build out custom branches instantly.
+              </p>
+
+              <div className="flex flex-wrap gap-1 mb-4">
+                <span className="text-[10px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md font-medium">
+                  #blank
+                </span>
+                <span className="text-[10px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md font-medium">
+                  #scratchpad
+                </span>
+                <span className="text-[10px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md font-medium">
+                  #fast
+                </span>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-indigo-100 flex items-center justify-between gap-2">
+              <span className="text-xs text-indigo-600 font-semibold">1 Root Node</span>
+              <button
+                id="template-open-blank-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  createNewMap('Central Topic');
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+              >
+                <span>Open Blank</span>
+                <ArrowRight className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {filtered.map((tpl) => (
           <div
             key={tpl.id}

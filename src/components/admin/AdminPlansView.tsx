@@ -19,14 +19,17 @@ export const AdminPlansView: React.FC = () => {
       setLoading(true);
       try {
         const res = await adminService.getPlans(adminRole);
-        setPlans(res.plans);
+        const planList = Array.isArray(res?.plans) ? res.plans : [];
+        setPlans(planList);
         const map: Record<string, AdminPlanConfig> = {};
-        res.plans.forEach((p) => {
+        planList.forEach((p) => {
           map[p.id] = { ...p };
         });
         setEditedPlans(map);
       } catch (err) {
         console.error('Failed to load plans:', err);
+        setPlans([]);
+        setEditedPlans({});
       } finally {
         setLoading(false);
       }
@@ -67,26 +70,26 @@ export const AdminPlansView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex flex-wrap items-center justify-between gap-4">
+      <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-sm font-bold text-white flex items-center gap-2">
-            <Sliders className="w-4 h-4 text-indigo-400" />
+          <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <Sliders className="w-4 h-4 text-indigo-600" />
             Centralized Plan Configuration Engine
           </h2>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-500">
             Updating plan limits here automatically enforces server-side AI quota middleware and UI capabilities.
           </p>
         </div>
         {!canEdit && (
-          <span className="text-xs text-amber-400 bg-amber-950/60 border border-amber-800 px-2.5 py-1 rounded-lg">
+          <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg">
             🔒 SUPER_ADMIN required to modify plans
           </span>
         )}
       </div>
 
       {saveSuccess && (
-        <div className="p-3 rounded-lg bg-emerald-950/60 border border-emerald-800 text-emerald-200 text-xs flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+        <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2 shadow-2xs">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
           {saveSuccess}
         </div>
       )}
@@ -100,72 +103,72 @@ export const AdminPlansView: React.FC = () => {
           return (
             <div
               key={plan.id}
-              className="p-5 rounded-xl bg-slate-950/80 border border-slate-800 flex flex-col justify-between space-y-5"
+              className="p-5 rounded-xl bg-white border border-slate-200 shadow-xs flex flex-col justify-between space-y-5"
             >
               <div>
-                <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                   <div>
-                    <span className="text-[10px] uppercase font-mono text-indigo-400 font-semibold">{plan.id} TIER</span>
-                    <h3 className="text-base font-bold text-white">{edited.name}</h3>
+                    <span className="text-[10px] uppercase font-mono text-indigo-600 font-bold">{plan.id} TIER</span>
+                    <h3 className="text-base font-bold text-slate-900">{edited.name}</h3>
                   </div>
-                  <span className="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-slate-900 border border-slate-700 text-slate-200">
+                  <span className="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-slate-50 border border-slate-200 text-slate-700">
                     ${edited.monthlyPrice}/mo
                   </span>
                 </div>
 
                 <div className="mt-4 space-y-3 text-xs">
                   <div>
-                    <label className="block text-slate-400 mb-1">Monthly Price ($)</label>
+                    <label className="block text-slate-600 mb-1 font-medium">Monthly Price ($)</label>
                     <input
                       type="number"
                       disabled={!canEdit}
                       value={edited.monthlyPrice}
                       onChange={(e) => handleFieldChange(plan.id, 'monthlyPrice', Number(e.target.value))}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white disabled:opacity-50"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-900 disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-slate-400 mb-1">Yearly Price ($)</label>
+                    <label className="block text-slate-600 mb-1 font-medium">Yearly Price ($)</label>
                     <input
                       type="number"
                       disabled={!canEdit}
                       value={edited.yearlyPrice}
                       onChange={(e) => handleFieldChange(plan.id, 'yearlyPrice', Number(e.target.value))}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white disabled:opacity-50"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-900 disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-slate-400 mb-1">Monthly AI Generations Limit</label>
+                    <label className="block text-slate-600 mb-1 font-medium">Monthly AI Generations Limit</label>
                     <input
                       type="number"
                       disabled={!canEdit}
                       value={edited.aiGenerationsLimit}
                       onChange={(e) => handleFieldChange(plan.id, 'aiGenerationsLimit', Number(e.target.value))}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-amber-300 font-mono font-bold disabled:opacity-50"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-amber-700 font-mono font-bold disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-slate-400 mb-1">Max Maps Limit</label>
+                    <label className="block text-slate-600 mb-1 font-medium">Max Maps Limit</label>
                     <input
                       type="number"
                       disabled={!canEdit}
                       value={edited.mapLimit}
                       onChange={(e) => handleFieldChange(plan.id, 'mapLimit', Number(e.target.value))}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white disabled:opacity-50"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-900 disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-slate-400 mb-1">Cloud Storage Limit (MB)</label>
+                    <label className="block text-slate-600 mb-1 font-medium">Cloud Storage Limit (MB)</label>
                     <input
                       type="number"
                       disabled={!canEdit}
                       value={edited.storageLimitMb}
                       onChange={(e) => handleFieldChange(plan.id, 'storageLimitMb', Number(e.target.value))}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white disabled:opacity-50"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-900 disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
                   </div>
 
@@ -176,9 +179,9 @@ export const AdminPlansView: React.FC = () => {
                         disabled={!canEdit}
                         checked={edited.premiumTemplates}
                         onChange={(e) => handleFieldChange(plan.id, 'premiumTemplates', e.target.checked)}
-                        className="rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-0"
+                        className="rounded border-slate-300 bg-white text-indigo-600 focus:ring-0"
                       />
-                      <span className="text-slate-300 text-xs">Premium Template Access</span>
+                      <span className="text-slate-700 text-xs font-medium">Premium Template Access</span>
                     </label>
 
                     <label className="flex items-center gap-2 cursor-pointer">
@@ -187,9 +190,9 @@ export const AdminPlansView: React.FC = () => {
                         disabled={!canEdit}
                         checked={edited.prioritySupport}
                         onChange={(e) => handleFieldChange(plan.id, 'prioritySupport', e.target.checked)}
-                        className="rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-0"
+                        className="rounded border-slate-300 bg-white text-indigo-600 focus:ring-0"
                       />
-                      <span className="text-slate-300 text-xs">Priority AI Thinking Model Queue</span>
+                      <span className="text-slate-700 text-xs font-medium">Priority AI Thinking Model Queue</span>
                     </label>
                   </div>
                 </div>
@@ -199,7 +202,7 @@ export const AdminPlansView: React.FC = () => {
                 <button
                   onClick={() => handleSavePlan(plan.id)}
                   disabled={isSaving}
-                  className="w-full mt-4 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition shadow-md shadow-indigo-600/20"
+                  className="w-full mt-4 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition shadow-xs"
                 >
                   <Save className="w-3.5 h-3.5" />
                   <span>{isSaving ? 'Saving...' : 'Save Plan Changes'}</span>

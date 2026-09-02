@@ -12,6 +12,9 @@ import { TemplatesView } from './components/views/TemplatesView';
 import { StudyModeView } from './components/views/StudyModeView';
 import { PresentationView } from './components/views/PresentationView';
 import { LandingView } from './components/views/LandingView';
+import { AdminPanel } from './components/admin/AdminPanel';
+import { LegalLayout } from './components/legal/LegalLayout';
+import { UserManualView } from './components/help/UserManualView';
 
 import { AIGeneratorModal } from './components/modals/AIGeneratorModal';
 import { MultimodalModal } from './components/modals/MultimodalModal';
@@ -21,10 +24,18 @@ import { PricingModal } from './components/modals/PricingModal';
 import { VersionHistoryModal } from './components/modals/VersionHistoryModal';
 import { SettingsModal } from './components/modals/SettingsModal';
 import { QuickNotesModal } from './components/modals/QuickNotesModal';
+import { CookieConsentBanner } from './components/legal/CookieConsentBanner';
 import confetti from 'canvas-confetti';
 
 const MainLayout: React.FC = () => {
-  const { currentView, celebrationTrigger } = useWorkspace();
+  const {
+    currentView,
+    setCurrentView,
+    legalDocId,
+    celebrationTrigger,
+    openLegal,
+    userManualCategory,
+  } = useWorkspace();
   const { user } = useAuth();
 
   // Fire confetti whenever celebration is triggered
@@ -39,6 +50,49 @@ const MainLayout: React.FC = () => {
     }
   }, [celebrationTrigger]);
 
+  // If on user manual view, render UserManualView
+  if (currentView === 'user_manual') {
+    return (
+      <UserManualView
+        initialCategory={userManualCategory || 'getting-started'}
+        onBackToApp={() => {
+          if (user) {
+            setCurrentView('dashboard');
+          } else {
+            setCurrentView('landing');
+          }
+          if (typeof window !== 'undefined') {
+            window.history.pushState({}, '', '/');
+          }
+        }}
+      />
+    );
+  }
+
+  // If on legal view, render LegalLayout
+  if (currentView === 'legal') {
+    return (
+      <LegalLayout
+        initialDocId={legalDocId}
+        onBackToApp={() => {
+          if (user) {
+            setCurrentView('dashboard');
+          } else {
+            setCurrentView('landing');
+          }
+          if (typeof window !== 'undefined') {
+            window.history.pushState({}, '', '/');
+          }
+        }}
+      />
+    );
+  }
+
+  // If on admin view, render AdminPanel
+  if (currentView === 'admin') {
+    return <AdminPanel />;
+  }
+
   // If on landing view and user isn't logged in, show landing
   if (currentView === 'landing') {
     return <LandingView />;
@@ -50,8 +104,10 @@ const MainLayout: React.FC = () => {
       case 'dashboard':
         return <DashboardView />;
       case 'canvas':
+      case 'editor':
         return <MindMapCanvas />;
       case 'my-maps':
+      case 'my_maps':
         return <MyMapsView />;
       case 'tasks':
         return <TasksKanbanView />;
@@ -60,9 +116,12 @@ const MainLayout: React.FC = () => {
       case 'templates':
         return <TemplatesView />;
       case 'study':
+      case 'study_mode':
         return <StudyModeView />;
       case 'presentation':
         return <PresentationView />;
+      case 'admin':
+        return <AdminPanel />;
       default:
         return <DashboardView />;
     }
@@ -92,6 +151,7 @@ const MainLayout: React.FC = () => {
       <VersionHistoryModal />
       <SettingsModal />
       <QuickNotesModal />
+      <CookieConsentBanner onNavigateToCookiePolicy={() => openLegal('cookies')} />
     </div>
   );
 };

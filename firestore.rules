@@ -330,5 +330,33 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if false;
     }
+
+    // =========================================================================
+    // 11. HELP ARTICLES (/helpArticles/{articleId})
+    // =========================================================================
+    match /helpArticles/{articleId} {
+      allow get, list: if true;
+      allow write: if isAdmin();
+    }
+
+    // =========================================================================
+    // 12. ARTICLE FEEDBACK (/articleFeedback/{feedbackId})
+    // =========================================================================
+    match /articleFeedback/{feedbackId} {
+      allow create: if true;
+      allow get, list: if isAdmin();
+      allow update, delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // 13. SUPPORT TICKETS (/supportTickets/{ticketId})
+    // =========================================================================
+    match /supportTickets/{ticketId} {
+      allow get: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow list: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow create: if (isSignedIn() && incoming().userId == request.auth.uid) || (!isSignedIn() && incoming().email is string);
+      allow update: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow delete: if isAdmin();
+    }
   }
 }

@@ -73,15 +73,15 @@ export const MyMapsView: React.FC = () => {
       }
 
       // Category filter
-      if (selectedCategory !== 'All' && m.category.toLowerCase() !== selectedCategory.toLowerCase()) {
+      if (selectedCategory !== 'All' && (m.category || 'General').toLowerCase() !== (selectedCategory || '').toLowerCase()) {
         return false;
       }
 
       // Search query filter
       if (
         search.trim() &&
-        !m.title.toLowerCase().includes(search.toLowerCase()) &&
-        !m.description?.toLowerCase().includes(search.toLowerCase())
+        !(m.title || '').toLowerCase().includes(search.toLowerCase()) &&
+        !(m.description || '').toLowerCase().includes(search.toLowerCase())
       ) {
         return false;
       }
@@ -321,12 +321,23 @@ export const MyMapsView: React.FC = () => {
               : 'Try clearing filters or generate a new visual map.'}
           </p>
           {activeTab !== 'trash' && (
-            <button
-              onClick={() => setIsAIGeneratorOpen(true)}
-              className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 cursor-pointer"
-            >
-              AI Mind Map
-            </button>
+            <div className="flex items-center justify-center gap-3">
+              <button
+                id="my-maps-empty-blank-map-btn"
+                onClick={() => createNewMap('Central Topic')}
+                className="px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 shadow-xs cursor-pointer flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4 text-indigo-600" />
+                <span>Blank Map</span>
+              </button>
+              <button
+                onClick={() => setIsAIGeneratorOpen(true)}
+                className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 shadow-xs cursor-pointer flex items-center gap-2"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>AI Mind Map</span>
+              </button>
+            </div>
           )}
         </div>
       ) : viewMode === 'grid' ? (

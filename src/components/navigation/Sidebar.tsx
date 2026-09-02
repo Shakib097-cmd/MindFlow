@@ -17,6 +17,17 @@ import {
   Crown,
   Zap,
   X,
+  ShieldCheck,
+  FileText,
+  Star,
+  Users,
+  Trash2,
+  HelpCircle,
+  BookOpen,
+  Play,
+  MessageSquare,
+  User,
+  Brain,
 } from 'lucide-react';
 import { AIUsageProgressBar } from '../common/AIUsageProgressBar';
 
@@ -29,19 +40,18 @@ export const Sidebar: React.FC = () => {
     allGoals,
     allFolders,
     openMap,
+    createNewMap,
     usage,
     setIsPricingOpen,
     setIsAIGeneratorOpen,
     setIsSettingsOpen,
     isMobileMenuOpen,
     setIsMobileMenuOpen,
+    openLegal,
+    openUserManual,
   } = useWorkspace();
 
-  const [collapsedFolders, setCollapsedFolders] = useState<Record<string, boolean>>({});
-
-  const toggleFolder = (folderId: string) => {
-    setCollapsedFolders((prev) => ({ ...prev, [folderId]: !prev[folderId] }));
-  };
+  const [isHelpOpen, setIsHelpOpen] = useState(true);
 
   const handleNavigate = (view: WorkspaceView) => {
     setCurrentView(view);
@@ -56,7 +66,7 @@ export const Sidebar: React.FC = () => {
   const sidebarContent = (
     <div className="flex flex-col h-full bg-white select-none">
       {/* Navigation Groups */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-6">
+      <div className="flex-1 overflow-y-auto p-3 space-y-5">
         {/* Mobile Header with close button */}
         <div className="flex items-center justify-between px-2 pt-1 pb-2 border-b border-slate-100 lg:hidden">
           <span className="text-xs font-bold text-slate-800 tracking-tight">Navigation</span>
@@ -68,12 +78,13 @@ export const Sidebar: React.FC = () => {
           </button>
         </div>
 
-        {/* Core Workspace Sections */}
+        {/* Main User Panel Navigation */}
         <div>
           <div className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-            Workspace
+            Main Menu
           </div>
           <div className="space-y-0.5">
+            {/* Dashboard */}
             <button
               id="sidebar-dashboard"
               onClick={() => handleNavigate('dashboard')}
@@ -89,6 +100,112 @@ export const Sidebar: React.FC = () => {
               </div>
             </button>
 
+            {/* My Mind Maps */}
+            <button
+              id="sidebar-my-maps"
+              onClick={() => handleNavigate('my_maps')}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
+                currentView === 'my_maps' || currentView === 'my-maps'
+                  ? 'bg-indigo-50 text-indigo-700'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <FolderTree className="w-4 h-4 text-emerald-500" />
+                <span>My Mind Maps</span>
+              </div>
+              <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-md">
+                {allMaps.filter((m) => !m.isTrash).length}
+              </span>
+            </button>
+
+            {/* Templates */}
+            <button
+              id="sidebar-templates"
+              onClick={() => handleNavigate('templates')}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
+                currentView === 'templates'
+                  ? 'bg-indigo-50 text-indigo-700'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Sparkles className="w-4 h-4 text-amber-500" />
+                <span>Templates</span>
+              </div>
+              <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-md">
+                16+
+              </span>
+            </button>
+
+            {/* AI Generator */}
+            <button
+              id="sidebar-ai-generator"
+              onClick={() => {
+                setIsAIGeneratorOpen(true);
+                setIsMobileMenuOpen(false);
+              }}
+              className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5">
+                <Brain className="w-4 h-4 text-purple-600" />
+                <span>AI Generator</span>
+              </div>
+              <span className="text-[9px] font-bold bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded uppercase">
+                Pro
+              </span>
+            </button>
+
+            {/* Favorites */}
+            <button
+              id="sidebar-favorites"
+              onClick={() => handleNavigate('my_maps')}
+              className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5">
+                <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                <span>Favorites</span>
+              </div>
+              <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-md">
+                {allMaps.filter((m) => m.isFavorite && !m.isTrash).length}
+              </span>
+            </button>
+
+            {/* Shared With Me */}
+            <button
+              id="sidebar-shared"
+              onClick={() => handleNavigate('my_maps')}
+              className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5">
+                <Users className="w-4 h-4 text-blue-500" />
+                <span>Shared With Me</span>
+              </div>
+            </button>
+
+            {/* Trash */}
+            <button
+              id="sidebar-trash"
+              onClick={() => handleNavigate('my_maps')}
+              className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5">
+                <Trash2 className="w-4 h-4 text-slate-400" />
+                <span>Trash</span>
+              </div>
+              <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-md">
+                {allMaps.filter((m) => m.isTrash).length}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* Action Hubs */}
+        <div>
+          <div className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+            Execution
+          </div>
+          <div className="space-y-0.5">
             <button
               id="sidebar-canvas"
               onClick={() => handleNavigate('editor')}
@@ -104,32 +221,6 @@ export const Sidebar: React.FC = () => {
               </div>
             </button>
 
-            <button
-              id="sidebar-my-maps"
-              onClick={() => handleNavigate('my_maps')}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
-                currentView === 'my_maps' || currentView === 'my-maps'
-                  ? 'bg-indigo-50 text-indigo-700'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <FolderTree className="w-4 h-4 text-emerald-500" />
-                <span>All Mind Maps</span>
-              </div>
-              <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-md">
-                {allMaps.length}
-              </span>
-            </button>
-          </div>
-        </div>
-
-        {/* Execution & Action Sections */}
-        <div>
-          <div className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-            Turn Into Action
-          </div>
-          <div className="space-y-0.5">
             <button
               id="sidebar-tasks"
               onClick={() => handleNavigate('tasks')}
@@ -198,47 +289,115 @@ export const Sidebar: React.FC = () => {
           </div>
         </div>
 
-        {/* Templates & Folders */}
+        {/* Help & Support Section */}
         <div>
-          <div className="px-3 flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-            <span>Templates</span>
+          <div className="flex items-center justify-between px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+            <span>Help & Support</span>
             <button
-              onClick={() => handleNavigate('templates')}
-              className="text-indigo-600 hover:underline capitalize font-medium cursor-pointer"
+              onClick={() => setIsHelpOpen(!isHelpOpen)}
+              className="text-slate-400 hover:text-slate-600 cursor-pointer"
             >
-              Browse
+              {isHelpOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
             </button>
           </div>
-          <button
-            id="sidebar-templates"
-            onClick={() => handleNavigate('templates')}
-            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
-              currentView === 'templates'
-                ? 'bg-indigo-50 text-indigo-700'
-                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-            }`}
-          >
-            <Sparkles className="w-4 h-4 text-indigo-500" />
-            <span>16+ Pro Templates</span>
-          </button>
+
+          {isHelpOpen && (
+            <div className="space-y-0.5">
+              {/* User Manual - Highlighted when on user_manual */}
+              <button
+                id="sidebar-user-manual"
+                onClick={() => {
+                  openUserManual('getting-started');
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                  currentView === 'user_manual'
+                    ? 'bg-indigo-600 text-white shadow-xs font-bold'
+                    : 'text-slate-700 hover:bg-indigo-50 hover:text-indigo-700'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <BookOpen className={`w-4 h-4 ${currentView === 'user_manual' ? 'text-white' : 'text-indigo-600'}`} />
+                  <span>User Manual</span>
+                </div>
+                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                  currentView === 'user_manual' ? 'bg-white/20 text-white' : 'bg-indigo-50 text-indigo-700'
+                }`}>
+                  Guide
+                </span>
+              </button>
+
+              {/* Getting Started */}
+              <button
+                id="sidebar-getting-started"
+                onClick={() => {
+                  openUserManual('getting-started');
+                  setIsMobileMenuOpen(false);
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer pl-6"
+              >
+                <Play className="w-3 h-3 text-emerald-500" />
+                <span>Getting Started</span>
+              </button>
+
+              {/* FAQ */}
+              <button
+                id="sidebar-faq"
+                onClick={() => {
+                  openUserManual('faq');
+                  setIsMobileMenuOpen(false);
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer pl-6"
+              >
+                <HelpCircle className="w-3 h-3 text-purple-500" />
+                <span>FAQ</span>
+              </button>
+
+              {/* Contact Support */}
+              <button
+                id="sidebar-contact-support"
+                onClick={() => {
+                  openUserManual('troubleshooting');
+                  setIsMobileMenuOpen(false);
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer pl-6"
+              >
+                <MessageSquare className="w-3 h-3 text-indigo-500" />
+                <span>Contact Support</span>
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Recent Maps Quick List */}
+        {/* Account & Settings Group */}
         <div>
           <div className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-            Recent Maps
+            Preferences
           </div>
-          <div className="space-y-1">
-            {allMaps.slice(0, 5).map((m) => (
-              <button
-                key={m.id}
-                onClick={() => handleOpenMap(m.id)}
-                className="w-full text-left px-3 py-1.5 rounded-lg text-xs text-slate-600 hover:bg-slate-100 hover:text-slate-900 truncate flex items-center gap-2 cursor-pointer"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 flex-shrink-0" />
-                <span className="truncate">{m.title}</span>
-              </button>
-            ))}
+          <div className="space-y-0.5">
+            <button
+              id="sidebar-settings-nav"
+              onClick={() => {
+                setIsSettingsOpen(true);
+                setIsMobileMenuOpen(false);
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer"
+            >
+              <Settings className="w-4 h-4 text-slate-500" />
+              <span>Settings</span>
+            </button>
+
+            <button
+              id="sidebar-profile-nav"
+              onClick={() => {
+                setIsSettingsOpen(true);
+                setIsMobileMenuOpen(false);
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer"
+            >
+              <User className="w-4 h-4 text-indigo-500" />
+              <span>Profile</span>
+            </button>
           </div>
         </div>
       </div>
@@ -283,6 +442,15 @@ export const Sidebar: React.FC = () => {
               <Settings className="w-3.5 h-3.5" />
             </button>
           </div>
+
+          <button
+            id="sidebar-admin-console-btn"
+            onClick={() => handleNavigate('admin')}
+            className="w-full mt-2 flex items-center justify-center gap-2 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-semibold transition border border-slate-800 cursor-pointer shadow-xs"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Admin Console</span>
+          </button>
         </div>
       </div>
     </div>
@@ -312,3 +480,4 @@ export const Sidebar: React.FC = () => {
     </>
   );
 };
+

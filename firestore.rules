@@ -1,0 +1,334 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =========================================================================
+    // 0. GLOBAL SAFETY NET & DEFAULT-DENY
+    // =========================================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // =========================================================================
+    // 1. REUSABLE HARDENED PRIMITIVES & IDENTITY HELPERS
+    // =========================================================================
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // =========================================================================
+    // 2. SCHEMA & ENTITY VALIDATORS
+    // =========================================================================
+    function isValidUserProfile(data) {
+      return data.id is string &&
+        isValidId(data.id) &&
+        data.email is string &&
+        data.email.size() <= 320 &&
+        (!('name' in data) || (data.name is string && data.name.size() <= 200)) &&
+        (!('plan' in data) || (data.plan in ['free', 'pro', 'business']));
+    }
+
+    function isValidUsage(data) {
+      return data.userId is string &&
+        isValidId(data.userId) &&
+        data.aiGenerationsUsed is number &&
+        data.aiGenerationsUsed >= 0 &&
+        data.aiGenerationsLimit is number &&
+        data.aiGenerationsLimit > 0;
+    }
+
+    function isValidMapPayload(data) {
+      return ('map' in data) &&
+        data.map.id is string &&
+        isValidId(data.map.id) &&
+        data.map.ownerId is string &&
+        isValidId(data.map.ownerId) &&
+        data.map.title is string &&
+        data.map.title.size() <= 500 &&
+        (!('visibility' in data.map) || (data.map.visibility in ['private', 'link', 'workspace', 'public', 'shared'])) &&
+        (!('nodes' in data) || (data.nodes is list && data.nodes.size() <= 2000)) &&
+        (!('edges' in data) || (data.edges is list && data.edges.size() <= 3000));
+    }
+
+    function isValidDirectMap(data) {
+      return data.id is string &&
+        isValidId(data.id) &&
+        data.ownerId is string &&
+        isValidId(data.ownerId) &&
+        data.title is string &&
+        data.title.size() <= 500 &&
+        (!('visibility' in data) || (data.visibility in ['private', 'link', 'workspace', 'public', 'shared'])) &&
+        (!('nodes' in data) || (data.nodes is list && data.nodes.size() <= 2000)) &&
+        (!('edges' in data) || (data.edges is list && data.edges.size() <= 3000));
+    }
+
+    function isValidTask(data) {
+      return data.id is string &&
+        isValidId(data.id) &&
+        data.userId is string &&
+        isValidId(data.userId) &&
+        data.title is string &&
+        data.title.size() <= 500 &&
+        (!('status' in data) || (data.status in ['todo', 'in_progress', 'review', 'done'])) &&
+        (!('priority' in data) || (data.priority in ['urgent', 'high', 'medium', 'low']));
+    }
+
+    function isValidGoal(data) {
+      return data.id is string &&
+        isValidId(data.id) &&
+        data.userId is string &&
+        isValidId(data.userId) &&
+        data.title is string &&
+        data.title.size() <= 500 &&
+        (!('progress' in data) || (data.progress is number && data.progress >= 0 && data.progress <= 100));
+    }
+
+    function isValidQuickNote(data) {
+      return data.id is string &&
+        isValidId(data.id) &&
+        data.userId is string &&
+        isValidId(data.userId) &&
+        (!('content' in data) || (data.content is string && data.content.size() <= 50000));
+    }
+
+    function isValidFolder(data) {
+      return data.id is string &&
+        isValidId(data.id) &&
+        data.userId is string &&
+        isValidId(data.userId) &&
+        data.name is string &&
+        data.name.size() <= 200;
+    }
+
+    function isValidPublicShare(data) {
+      return data.shareToken is string &&
+        isValidId(data.shareToken) &&
+        data.mapId is string &&
+        isValidId(data.mapId) &&
+        data.ownerId is string &&
+        isValidId(data.ownerId) &&
+        (!('role' in data) || (data.role in ['viewer', 'commenter', 'editor'])) &&
+        (!('isActive' in data) || (data.isActive is bool));
+    }
+
+    // =========================================================================
+    // 3. USAGE & QUOTA COLLECTION (/usage/{userId})
+    // =========================================================================
+    match /usage/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      // Client initial creation permitted with strict validation; updates strictly guarded
+      allow create: if isOwner(userId) &&
+        incoming().userId == userId &&
+        isValidUsage(incoming());
+      // Updates are managed via backend Admin SDK to prevent quota tampering
+      allow update: if isOwner(userId) &&
+        existing().userId == userId &&
+        incoming().userId == userId &&
+        isValidUsage(incoming());
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // 4. USER PROFILE & SUBCOLLECTIONS (/users/{userId})
+    // =========================================================================
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) &&
+        incoming().id == userId &&
+        isValidUserProfile(incoming());
+      allow update: if isOwner(userId) &&
+        existing().id == userId &&
+        incoming().id == userId &&
+        isValidUserProfile(incoming());
+      allow delete: if false;
+
+      // --- User Mind Maps Subcollection ---
+      match /maps/{mapId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+          isValidId(mapId) &&
+          isValidMapPayload(incoming()) &&
+          incoming().map.ownerId == userId;
+        allow update: if isOwner(userId) &&
+          isValidId(mapId) &&
+          isValidMapPayload(incoming()) &&
+          existing().map.ownerId == userId &&
+          incoming().map.ownerId == userId;
+        allow delete: if isOwner(userId) && isValidId(mapId);
+      }
+
+      // --- User Kanban Tasks Subcollection ---
+      match /tasks/{taskId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+          isValidId(taskId) &&
+          incoming().userId == userId &&
+          isValidTask(incoming());
+        allow update: if isOwner(userId) &&
+          isValidId(taskId) &&
+          existing().userId == userId &&
+          incoming().userId == userId &&
+          isValidTask(incoming());
+        allow delete: if isOwner(userId) && isValidId(taskId);
+      }
+
+      // --- User Strategic Goals Subcollection ---
+      match /goals/{goalId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+          isValidId(goalId) &&
+          incoming().userId == userId &&
+          isValidGoal(incoming());
+        allow update: if isOwner(userId) &&
+          isValidId(goalId) &&
+          existing().userId == userId &&
+          incoming().userId == userId &&
+          isValidGoal(incoming());
+        allow delete: if isOwner(userId) && isValidId(goalId);
+      }
+
+      // --- User Quick Notes Subcollection ---
+      match /quickNotes/{noteId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+          isValidId(noteId) &&
+          incoming().userId == userId &&
+          isValidQuickNote(incoming());
+        allow update: if isOwner(userId) &&
+          isValidId(noteId) &&
+          existing().userId == userId &&
+          incoming().userId == userId &&
+          isValidQuickNote(incoming());
+        allow delete: if isOwner(userId) && isValidId(noteId);
+      }
+
+      // --- User Folders Subcollection ---
+      match /folders/{folderId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+          isValidId(folderId) &&
+          incoming().userId == userId &&
+          isValidFolder(incoming());
+        allow update: if isOwner(userId) &&
+          isValidId(folderId) &&
+          existing().userId == userId &&
+          incoming().userId == userId &&
+          isValidFolder(incoming());
+        allow delete: if isOwner(userId) && isValidId(folderId);
+      }
+
+      // --- User Workspaces Subcollection ---
+      match /workspaces/{workspaceId} {
+        allow get, list: if isOwner(userId);
+        allow create, update, delete: if isOwner(userId) && isValidId(workspaceId);
+      }
+    }
+
+    // =========================================================================
+    // 5. PUBLIC SHARE INDEXES (/publicShares/{shareToken})
+    // =========================================================================
+    match /publicShares/{shareToken} {
+      // Unauthenticated get allowed only for active, unexpired shared tokens
+      allow get: if isValidId(shareToken) &&
+        resource.data.isActive == true &&
+        (resource.data.expiresAt == 0 || resource.data.expiresAt > request.time.toMillis());
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isSignedIn() &&
+        isValidId(shareToken) &&
+        incoming().ownerId == request.auth.uid &&
+        incoming().shareToken == shareToken &&
+        isValidPublicShare(incoming());
+      allow update: if isSignedIn() &&
+        isValidId(shareToken) &&
+        existing().ownerId == request.auth.uid &&
+        incoming().ownerId == request.auth.uid &&
+        isValidPublicShare(incoming());
+      allow delete: if isSignedIn() &&
+        isValidId(shareToken) &&
+        existing().ownerId == request.auth.uid;
+    }
+
+    // =========================================================================
+    // 6. GLOBAL / MIRRORED MINDMAPS (/mindmaps/{mapId})
+    // =========================================================================
+    match /mindmaps/{mapId} {
+      allow get: if isValidId(mapId) && (
+        (isSignedIn() && resource.data.ownerId == request.auth.uid) ||
+        resource.data.visibility in ['public', 'link', 'shared']
+      );
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isSignedIn() &&
+        isValidId(mapId) &&
+        incoming().ownerId == request.auth.uid &&
+        isValidDirectMap(incoming());
+      allow update: if isSignedIn() &&
+        isValidId(mapId) &&
+        existing().ownerId == request.auth.uid &&
+        incoming().ownerId == request.auth.uid &&
+        isValidDirectMap(incoming());
+      allow delete: if isSignedIn() &&
+        isValidId(mapId) &&
+        existing().ownerId == request.auth.uid;
+    }
+
+    // =========================================================================
+    // 7. PUBLIC TEMPLATES CATALOGUE (/templates/{templateId})
+    // =========================================================================
+    match /templates/{templateId} {
+      allow get, list: if true;
+      allow write: if isAdmin();
+    }
+
+    // =========================================================================
+    // 8. USER SUBSCRIPTIONS (/subscriptions/{userId})
+    // =========================================================================
+    match /subscriptions/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false; // Managed exclusively via server webhook / Admin SDK
+    }
+
+    // =========================================================================
+    // 9. NOTIFICATIONS (/notifications/{notificationId})
+    // =========================================================================
+    match /notifications/{notificationId} {
+      allow get, list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() &&
+        existing().userId == request.auth.uid &&
+        incoming().userId == request.auth.uid &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['read']);
+      allow create, delete: if false; // System notifications only
+    }
+
+    // =========================================================================
+    // 10. SYSTEM ADMINS REGISTRY (/admins/{adminId})
+    // =========================================================================
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+  }
+}

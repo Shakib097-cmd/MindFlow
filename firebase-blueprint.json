@@ -1,0 +1,256 @@
+{
+  "entities": {
+    "usage": {
+      "title": "Usage",
+      "description": "User monthly usage limits and AI generation quotas",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "User ID owning this usage quota"
+        },
+        "aiGenerationsUsed": {
+          "type": "number",
+          "description": "Number of AI generations consumed during current monthly billing cycle"
+        },
+        "aiGenerationsLimit": {
+          "type": "number",
+          "description": "Monthly limit of AI generations allowed based on subscription plan"
+        },
+        "mapsCreated": {
+          "type": "number",
+          "description": "Number of mind maps created by user"
+        },
+        "mapsLimit": {
+          "type": "number",
+          "description": "Maximum mind maps permitted"
+        },
+        "storageMbUsed": {
+          "type": "number",
+          "description": "Storage used in megabytes"
+        },
+        "storageMbLimit": {
+          "type": "number",
+          "description": "Maximum storage allowed in megabytes"
+        },
+        "exportsUsed": {
+          "type": "number",
+          "description": "Number of exports performed"
+        },
+        "exportsLimit": {
+          "type": "number",
+          "description": "Monthly exports quota"
+        },
+        "voiceMinutesUsed": {
+          "type": "number",
+          "description": "Voice audio minutes processed"
+        },
+        "voiceMinutesLimit": {
+          "type": "number",
+          "description": "Monthly voice minutes limit"
+        },
+        "periodStart": {
+          "type": "number",
+          "description": "Epoch timestamp for start of monthly cycle"
+        },
+        "periodEnd": {
+          "type": "number",
+          "description": "Epoch timestamp for end of monthly cycle"
+        },
+        "plan": {
+          "type": "string",
+          "enum": ["free", "pro", "business"],
+          "description": "Active subscription tier"
+        },
+        "updatedAt": {
+          "type": "number",
+          "description": "Timestamp of last update"
+        }
+      },
+      "required": ["userId", "aiGenerationsUsed", "aiGenerationsLimit"]
+    },
+    "mindMap": {
+      "title": "MindMap",
+      "description": "Mind map document structure containing nodes and connections",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "visibility": { "type": "string", "enum": ["private", "shared", "public"] },
+        "isFavorite": { "type": "boolean" },
+        "isArchived": { "type": "boolean" },
+        "layout": { "type": "string" },
+        "rootNodeId": { "type": "string" },
+        "shareToken": { "type": "string" },
+        "shareRole": { "type": "string", "enum": ["viewer", "commenter", "editor"] },
+        "nodes": { "type": "array" },
+        "edges": { "type": "array" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "ownerId", "title", "createdAt", "updatedAt"]
+    },
+    "task": {
+      "title": "Task",
+      "description": "Task Kanban item linked to map deliverables",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["todo", "in_progress", "review", "done"] },
+        "priority": { "type": "string", "enum": ["urgent", "high", "medium", "low"] },
+        "dueDate": { "type": "string" },
+        "mapId": { "type": "string" },
+        "nodeId": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "userId", "title", "status", "priority"]
+    },
+    "goal": {
+      "title": "Goal",
+      "description": "Strategic milestone and outcome tracker",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "progress": { "type": "number" },
+        "targetDate": { "type": "string" },
+        "status": { "type": "string", "enum": ["on_track", "at_risk", "behind", "completed"] },
+        "milestones": { "type": "array" },
+        "mapId": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "userId", "title", "progress", "status"]
+    },
+    "quickNote": {
+      "title": "QuickNote",
+      "description": "Captured thought or fleeting idea",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "tags": { "type": "array" },
+        "color": { "type": "string" },
+        "convertedToNode": { "type": "boolean" },
+        "convertedMapId": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "userId", "content"]
+    },
+    "folder": {
+      "title": "Folder",
+      "description": "User custom organization folder",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "color": { "type": "string" },
+        "icon": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["id", "userId", "name"]
+    },
+    "userProfile": {
+      "title": "UserProfile",
+      "description": "User profile with plan and onboarding status",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "plan": { "type": "string", "enum": ["free", "pro", "business"] },
+        "onboardingCompleted": { "type": "boolean" },
+        "role": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "email", "plan"]
+    },
+    "publicShare": {
+      "title": "PublicShare",
+      "description": "Public or shared read-only map access record index",
+      "type": "object",
+      "properties": {
+        "shareToken": { "type": "string" },
+        "mapId": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "title": { "type": "string" },
+        "role": { "type": "string", "enum": ["viewer", "commenter", "editor"] },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "number" },
+        "expiresAt": { "type": "number" }
+      },
+      "required": ["shareToken", "mapId", "ownerId", "isActive"]
+    },
+    "workspace": {
+      "title": "Workspace",
+      "description": "Collaborative team workspace",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "name", "ownerId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "userProfile",
+      "description": "User private profile document"
+    },
+    "/usage/{userId}": {
+      "schema": "usage",
+      "description": "Monthly usage and AI generation limit records indexed by userId"
+    },
+    "/users/{userId}/maps/{mapId}": {
+      "schema": "mindMap",
+      "description": "Mind map documents owned by user"
+    },
+    "/users/{userId}/tasks/{taskId}": {
+      "schema": "task",
+      "description": "Actionable task items owned by user"
+    },
+    "/users/{userId}/goals/{goalId}": {
+      "schema": "goal",
+      "description": "Strategic goals owned by user"
+    },
+    "/users/{userId}/quickNotes/{noteId}": {
+      "schema": "quickNote",
+      "description": "Quick notes owned by user"
+    },
+    "/users/{userId}/folders/{folderId}": {
+      "schema": "folder",
+      "description": "Custom organization folders owned by user"
+    },
+    "/users/{userId}/workspaces/{workspaceId}": {
+      "schema": "workspace",
+      "description": "Workspaces configured for user"
+    },
+    "/publicShares/{shareToken}": {
+      "schema": "publicShare",
+      "description": "Public share indexes for read-only preview"
+    },
+    "/mindmaps/{mapId}": {
+      "schema": "mindMap",
+      "description": "Top-level shared or public mind map copies"
+    }
+  }
+}

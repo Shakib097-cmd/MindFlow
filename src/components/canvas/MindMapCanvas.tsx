@@ -1,0 +1,640 @@
+import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { useWorkspace } from '../../context/WorkspaceContext';
+import { CanvasNode } from './CanvasNode';
+import { MindNode, MapLayout } from '../../types';
+import {
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  RotateCcw,
+  Undo2,
+  Redo2,
+  Sparkles,
+  Layers,
+  Map as MapIcon,
+  HelpCircle,
+  Search,
+  CheckCircle2,
+  Loader2,
+  Compass,
+} from 'lucide-react';
+
+export const MindMapCanvas: React.FC = () => {
+  const {
+    nodes,
+    edges,
+    activeMap,
+    activeLayout,
+    changeMapLayout,
+    autoArrangeMap,
+    selectedNodeId,
+    selectedNodeIds,
+    setSelectedNodeId,
+    toggleNodeSelection,
+    zoom,
+    setZoom,
+    pan,
+    setPan,
+    fitToScreen,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    isSaving,
+    isSyncing,
+    lastSyncedAt,
+    syncError,
+    syncStatus,
+    syncNow,
+    searchQuery,
+    setSearchQuery,
+    searchResults,
+    updateNodePosition,
+    addNodeChild,
+    addNodeSibling,
+    deleteNode,
+    setIsAIGeneratorOpen,
+    setIsMultimodalOpen,
+    setIsAIAssistantOpen,
+  } = useWorkspace();
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isPanning, setIsPanning] = useState(false);
+  const [startPanPos, setStartPanPos] = useState({ x: 0, y: 0 });
+
+  // Dragging individual node
+  const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [touchPinchDist, setTouchPinchDist] = useState<number | null>(null);
+  const [touchInitialZoom, setTouchInitialZoom] = useState<number>(1);
+
+  // Mini-map visible
+  const [showMinimap, setShowMinimap] = useState(false);
+  const [showLayoutMenu, setShowLayoutMenu] = useState(false);
+  const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
+
+  // Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if typing in an input or textarea
+      if (
+        document.activeElement?.tagName === 'INPUT' ||
+        document.activeElement?.tagName === 'TEXTAREA'
+      ) {
+        return;
+      }
+
+      if (e.key === 'Tab' && selectedNodeId) {
+        e.preventDefault();
+        addNodeChild(selectedNodeId);
+      } else if (e.key === 'Enter' && selectedNodeId) {
+        e.preventDefault();
+        addNodeSibling(selectedNodeId);
+      } else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedNodeId) {
+        e.preventDefault();
+        deleteNode(selectedNodeId);
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          redo();
+        } else {
+          undo();
+        }
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'y') {
+        e.preventDefault();
+        redo();
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        const searchInput = document.getElementById('canvas-search-input');
+        searchInput?.focus();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedNodeId, addNodeChild, addNodeSibling, deleteNode, undo, redo]);
+
+  // Zoom with wheel
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    if (e.ctrlKey || e.metaKey) {
+      const zoomFactor = e.deltaY > 0 ? 0.92 : 1.08;
+      setZoom((prev) => Math.min(Math.max(prev * zoomFactor, 0.25), 3));
+    } else {
+      setPan((prev) => ({
+        x: prev.x - e.deltaX,
+        y: prev.y - e.deltaY,
+      }));
+    }
+  };
+
+  // Canvas Pan Handlers (Mouse)
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button === 0 && (e.target === containerRef.current || (e.target as HTMLElement).id === 'canvas-svg-layer')) {
+      setIsPanning(true);
+      setStartPanPos({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+      setSelectedNodeId(null);
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isPanning) {
+      setPan({
+        x: e.clientX - startPanPos.x,
+        y: e.clientY - startPanPos.y,
+      });
+    } else if (draggingNodeId) {
+      const currentZoom = zoom;
+      const targetNode = nodes.find((n) => n.id === draggingNodeId);
+      if (targetNode && containerRef.current) {
+        const newX = (e.clientX - pan.x - containerRef.current.getBoundingClientRect().left) / currentZoom - dragOffset.x;
+        const newY = (e.clientY - pan.y - containerRef.current.getBoundingClientRect().top) / currentZoom - dragOffset.y;
+        updateNodePosition(draggingNodeId, Math.round(newX), Math.round(newY));
+      }
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsPanning(false);
+    setDraggingNodeId(null);
+  };
+
+  // Touch Handlers for Mobile and Tablets
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      if (e.target === containerRef.current || (e.target as HTMLElement).id === 'canvas-svg-layer') {
+        setIsPanning(true);
+        setStartPanPos({ x: touch.clientX - pan.x, y: touch.clientY - pan.y });
+        setSelectedNodeId(null);
+      }
+    } else if (e.touches.length === 2) {
+      // 2 fingers pinch to zoom
+      setIsPanning(false);
+      setDraggingNodeId(null);
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+      setTouchPinchDist(dist);
+      setTouchInitialZoom(zoom);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      if (isPanning) {
+        setPan({
+          x: touch.clientX - startPanPos.x,
+          y: touch.clientY - startPanPos.y,
+        });
+      } else if (draggingNodeId) {
+        const targetNode = nodes.find((n) => n.id === draggingNodeId);
+        if (targetNode && containerRef.current) {
+          const newX = (touch.clientX - pan.x - containerRef.current.getBoundingClientRect().left) / zoom - dragOffset.x;
+          const newY = (touch.clientY - pan.y - containerRef.current.getBoundingClientRect().top) / zoom - dragOffset.y;
+          updateNodePosition(draggingNodeId, Math.round(newX), Math.round(newY));
+        }
+      }
+    } else if (e.touches.length === 2 && touchPinchDist) {
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+      const scale = dist / touchPinchDist;
+      setZoom(Math.min(Math.max(touchInitialZoom * scale, 0.25), 3));
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setIsPanning(false);
+    setDraggingNodeId(null);
+    setTouchPinchDist(null);
+  };
+
+  // Node Drag Start (Mouse)
+  const handleNodeDragStart = (e: React.MouseEvent, nodeId: string) => {
+    setSelectedNodeId(nodeId);
+    const node = nodes.find((n) => n.id === nodeId);
+    if (!node || !containerRef.current) return;
+
+    const rect = containerRef.current.getBoundingClientRect();
+    const cursorCanvasX = (e.clientX - pan.x - rect.left) / zoom;
+    const cursorCanvasY = (e.clientY - pan.y - rect.top) / zoom;
+
+    setDragOffset({
+      x: cursorCanvasX - node.x,
+      y: cursorCanvasY - node.y,
+    });
+    setDraggingNodeId(nodeId);
+  };
+
+  // Node Drag Start (Touch)
+  const handleNodeTouchDragStart = (e: React.TouchEvent, nodeId: string) => {
+    setSelectedNodeId(nodeId);
+    const node = nodes.find((n) => n.id === nodeId);
+    if (!node || !containerRef.current || e.touches.length === 0) return;
+
+    const touch = e.touches[0];
+    const rect = containerRef.current.getBoundingClientRect();
+    const cursorCanvasX = (touch.clientX - pan.x - rect.left) / zoom;
+    const cursorCanvasY = (touch.clientY - pan.y - rect.top) / zoom;
+
+    setDragOffset({
+      x: cursorCanvasX - node.x,
+      y: cursorCanvasY - node.y,
+    });
+    setDraggingNodeId(nodeId);
+  };
+
+  // Build Children Map for collapse & child count
+  const childrenCountMap = new Map<string, number>();
+  nodes.forEach((n) => {
+    if (n.parentId) {
+      childrenCountMap.set(n.parentId, (childrenCountMap.get(n.parentId) || 0) + 1);
+    }
+  });
+
+  // Calculate Bezier curve between source node and target node
+  const renderEdge = (edge: any) => {
+    const source = nodes.find((n) => n.id === edge.sourceId);
+    const target = nodes.find((n) => n.id === edge.targetId);
+    if (!source || !target) return null;
+
+    // Source coordinates (center of source node)
+    const sx = source.x + source.width / 2;
+    const sy = source.y + source.height / 2;
+
+    // Target coordinates (center of target node)
+    const tx = target.x + target.width / 2;
+    const ty = target.y + target.height / 2;
+
+    const dx = tx - sx;
+    const dy = ty - sy;
+
+    let pathD = '';
+    if (activeLayout === 'top-to-bottom' || activeLayout === 'bottom-to-top') {
+      const cy1 = sy + dy * 0.5;
+      const cy2 = ty - dy * 0.5;
+      pathD = `M ${sx} ${sy} C ${sx} ${cy1}, ${tx} ${cy2}, ${tx} ${ty}`;
+    } else {
+      const cx1 = sx + dx * 0.5;
+      const cx2 = tx - dx * 0.5;
+      pathD = `M ${sx} ${sy} C ${cx1} ${sy}, ${cx2} ${ty}, ${tx} ${ty}`;
+    }
+
+    const strokeColor = edge.style?.color || source.style?.borderColor || '#cbd5e1';
+    const strokeWidth = edge.style?.width || 2;
+
+    return (
+      <path
+        key={edge.id}
+        d={pathD}
+        fill="none"
+        stroke={strokeColor}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        className="transition-all duration-300 opacity-80"
+      />
+    );
+  };
+
+  const LAYOUT_OPTIONS: Array<{ id: MapLayout; label: string; icon: string }> = [
+    { id: 'left-to-right', label: 'Left to Right', icon: '➡️' },
+    { id: 'radial', label: 'Radial Map', icon: '🌐' },
+    { id: 'top-to-bottom', label: 'Top to Bottom', icon: '⬇️' },
+    { id: 'tree', label: 'Hierarchy Tree', icon: '🌲' },
+    { id: 'right-to-left', label: 'Right to Left', icon: '⬅️' },
+    { id: 'bottom-to-top', label: 'Bottom to Top', icon: '⬆️' },
+  ];
+
+  return (
+    <div
+      ref={containerRef}
+      id="mindmap-canvas-container"
+      className="relative w-full h-full overflow-hidden bg-slate-50 bg-canvas-dots cursor-crosshair select-none touch-none"
+      onWheel={handleWheel}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
+    >
+      {/* Top Floating Control Bar / Header */}
+      <div className="absolute top-3 sm:top-6 left-3 sm:left-6 z-40 flex flex-col gap-1.5 max-w-[calc(100vw-130px)] sm:max-w-md pointer-events-none">
+        <div className="flex flex-col gap-0.5 pointer-events-auto bg-white/80 backdrop-blur-xs p-2 sm:p-0 rounded-xl sm:bg-transparent border sm:border-0 border-slate-200/80 shadow-xs sm:shadow-none">
+          <h1 className="text-sm sm:text-lg font-semibold text-slate-800 tracking-tight truncate">
+            {activeMap?.title || 'SaaS Launch Strategy'}
+          </h1>
+          <div className="flex items-center gap-2 text-[10px] sm:text-xs text-slate-400 font-medium">
+            {isSaving ? (
+              <span className="flex items-center gap-1 text-indigo-600 font-medium animate-pulse">
+                <Loader2 className="w-2.5 h-2.5 animate-spin" /> Saving locally...
+              </span>
+            ) : isSyncing || syncStatus === 'syncing' ? (
+              <span className="flex items-center gap-1 text-indigo-600 font-medium animate-pulse">
+                <Loader2 className="w-2.5 h-2.5 animate-spin" /> Syncing with cloud...
+              </span>
+            ) : syncStatus === 'offline' ? (
+              <span className="flex items-center gap-1 text-slate-500">
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Offline (Saved locally)
+              </span>
+            ) : syncStatus === 'error' ? (
+              <button
+                onClick={() => syncNow()}
+                className="flex items-center gap-1 text-rose-600 hover:underline cursor-pointer"
+                title={syncError || 'Sync failed'}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Sync issue • Retry
+              </button>
+            ) : (
+              <span className="flex items-center gap-1 text-slate-600">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                {lastSyncedAt ? `Synced at ${new Date(lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Autosaved'}
+              </span>
+            )}
+            <span className="text-slate-300">•</span>
+            <span className="hidden xs:inline">
+              {nodes.length} {nodes.length === 1 ? 'node' : 'nodes'}
+            </span>
+          </div>
+        </div>
+
+        {/* Action Pills */}
+        <div className="flex items-center gap-1.5 mt-0.5 pointer-events-auto flex-wrap">
+          {/* Layout Selector */}
+          <div className="relative">
+            <button
+              id="layout-picker-btn"
+              onClick={() => setShowLayoutMenu(!showLayoutMenu)}
+              className="flex items-center gap-1 text-[11px] sm:text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 shadow-xs hover:bg-slate-50 text-slate-700 transition-colors cursor-pointer"
+            >
+              <Compass className="w-3.5 h-3.5 text-indigo-600" />
+              <span className="capitalize hidden xs:inline">{activeLayout.replace(/-/g, ' ')}</span>
+            </button>
+
+            {showLayoutMenu && (
+              <div className="absolute top-full left-0 mt-2 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 w-44 z-50">
+                <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  Map Layouts
+                </div>
+                {LAYOUT_OPTIONS.map((lo) => (
+                  <button
+                    key={lo.id}
+                    onClick={() => {
+                      changeMapLayout(lo.id);
+                      setShowLayoutMenu(false);
+                    }}
+                    className={`w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-slate-50 transition-colors cursor-pointer ${
+                      activeLayout === lo.id ? 'font-bold text-indigo-600 bg-indigo-50/60' : 'text-slate-700'
+                    }`}
+                  >
+                    <span>{lo.icon}</span>
+                    <span>{lo.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Auto Arrange */}
+          <button
+            id="auto-arrange-btn"
+            onClick={autoArrangeMap}
+            className="p-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 hover:bg-slate-50 shadow-xs transition-colors cursor-pointer"
+            title="Auto Arrange Nodes"
+          >
+            <Layers className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Undo / Redo */}
+          <div className="flex items-center gap-0.5 bg-white border border-slate-200 rounded-lg p-0.5 shadow-xs">
+            <button
+              id="canvas-undo-btn"
+              onClick={undo}
+              disabled={!canUndo}
+              className="p-1.5 rounded-md text-slate-600 hover:text-slate-900 disabled:opacity-30 hover:bg-slate-100 transition-colors cursor-pointer"
+              title="Undo (Ctrl+Z)"
+            >
+              <Undo2 className="w-3.5 h-3.5" />
+            </button>
+            <button
+              id="canvas-redo-btn"
+              onClick={redo}
+              disabled={!canRedo}
+              className="p-1.5 rounded-md text-slate-600 hover:text-slate-900 disabled:opacity-30 hover:bg-slate-100 transition-colors cursor-pointer"
+              title="Redo (Ctrl+Y)"
+            >
+              <Redo2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Top Right Actions: Search & AI Quick Triggers */}
+      <div className="absolute top-3 sm:top-4 right-3 sm:right-4 z-40 flex items-center gap-1.5 sm:gap-2">
+        {/* Search input in canvas (desktop only, mobile has navbar search) */}
+        <div className="relative hidden md:block">
+          <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            id="canvas-search-input"
+            type="text"
+            placeholder="Search nodes..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-36 lg:w-48 focus:w-56 transition-all text-xs pl-8 pr-3 py-1.5 rounded-xl bg-white/90 backdrop-blur-md border border-slate-200 shadow-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+          />
+          {searchResults.length > 0 && (
+            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-md">
+              {searchResults.length}
+            </span>
+          )}
+        </div>
+
+        {/* AI Generator Button */}
+        <button
+          id="canvas-ai-gen-btn"
+          onClick={() => setIsAIGeneratorOpen(true)}
+          className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition-all active:scale-95 cursor-pointer"
+        >
+          <Sparkles className="w-3.5 h-3.5" />
+          <span className="hidden xs:inline">AI Generate</span>
+        </button>
+
+        {/* AI Copilot Side Drawer Trigger */}
+        <button
+          id="canvas-ai-assistant-btn"
+          onClick={() => setIsAIAssistantOpen(true)}
+          className="p-1.5 sm:p-2 rounded-xl bg-white/90 backdrop-blur-md border border-slate-200 text-indigo-600 hover:bg-indigo-50 shadow-xs transition-colors cursor-pointer"
+          title="Open AI Assistant & Thinking Mode"
+        >
+          <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+        </button>
+      </div>
+
+      {/* Main Canvas Infinite Transform Viewport */}
+      <div
+        id="canvas-viewport"
+        className="w-full h-full origin-top-left"
+        style={{
+          transform: `translate(${pan.x + (containerRef.current?.clientWidth || 0) / 2}px, ${
+            pan.y + (containerRef.current?.clientHeight || 0) / 2
+          }px) scale(${zoom})`,
+          transition: isPanning || draggingNodeId ? 'none' : 'transform 0.15s ease-out',
+        }}
+      >
+        {/* SVG Bezier Connectors Layer */}
+        <svg
+          id="canvas-svg-layer"
+          className="absolute overflow-visible pointer-events-none"
+          style={{ width: 1, height: 1 }}
+        >
+          {edges.map((edge) => renderEdge(edge))}
+        </svg>
+
+        {/* Canvas Nodes Layer */}
+        <div id="canvas-nodes-layer" className="absolute">
+          {nodes.map((node) => {
+            const count = childrenCountMap.get(node.id) || 0;
+            const isMatch = searchResults.includes(node.id);
+            return (
+              <CanvasNode
+                key={node.id}
+                node={node}
+                hasChildren={count > 0}
+                childCount={count}
+                isSelected={selectedNodeId === node.id || selectedNodeIds.includes(node.id)}
+                isSearchMatch={isMatch}
+                onDragStart={handleNodeDragStart}
+                onTouchDragStart={handleNodeTouchDragStart}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Bottom Floating Canvas Controls */}
+      <div className="absolute bottom-3 sm:bottom-6 left-3 sm:left-6 z-40 flex items-center gap-1.5 sm:gap-2">
+        <button
+          id="fit-screen-btn"
+          onClick={fitToScreen}
+          className="px-2.5 sm:px-4 py-1.5 sm:py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 transition-colors flex items-center gap-1.5 cursor-pointer"
+        >
+          <Maximize2 className="w-3.5 h-3.5 text-slate-500" />
+          <span className="hidden xs:inline">Fit to Screen</span>
+        </button>
+
+        <div className="flex items-center bg-white border border-slate-200 rounded-lg shadow-xs">
+          <button
+            id="zoom-out-btn"
+            onClick={() => setZoom((z) => Math.max(z - 0.15, 0.25))}
+            className="p-1.5 sm:p-2 hover:bg-slate-50 text-slate-500 hover:text-slate-800 transition-colors rounded-l-lg cursor-pointer"
+            title="Zoom Out"
+          >
+            <ZoomOut className="w-3.5 h-3.5" />
+          </button>
+          <span className="text-xs font-bold text-slate-700 select-none px-1.5 sm:px-2 min-w-[36px] sm:min-w-[44px] text-center">
+            {Math.round(zoom * 100)}%
+          </span>
+          <button
+            id="zoom-in-btn"
+            onClick={() => setZoom((z) => Math.min(z + 0.15, 3))}
+            className="p-1.5 sm:p-2 hover:bg-slate-50 text-slate-500 hover:text-slate-800 transition-colors rounded-r-lg cursor-pointer"
+            title="Zoom In"
+          >
+            <ZoomIn className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        <button
+          id="help-shortcuts-btn"
+          onClick={() => setShowKeyboardHelp(!showKeyboardHelp)}
+          className="p-1.5 sm:p-2 bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-slate-800 shadow-xs hover:bg-slate-50 transition-colors cursor-pointer hidden sm:flex"
+          title="Keyboard Shortcuts"
+        >
+          <HelpCircle className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Keyboard Shortcuts Modal / Tooltip */}
+      {showKeyboardHelp && (
+        <div className="absolute bottom-16 sm:bottom-20 left-3 sm:left-6 z-50 bg-slate-900/95 backdrop-blur-md text-white rounded-xl p-4 shadow-2xl border border-slate-700 w-72 text-xs">
+          <div className="font-bold text-sm mb-2 text-indigo-400">Keyboard Shortcuts</div>
+          <div className="space-y-1.5 text-slate-300">
+            <div className="flex justify-between">
+              <span>Add Child Idea</span>
+              <kbd className="bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700 font-mono">Tab</kbd>
+            </div>
+            <div className="flex justify-between">
+              <span>Add Sibling Idea</span>
+              <kbd className="bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700 font-mono">Enter</kbd>
+            </div>
+            <div className="flex justify-between">
+              <span>Edit Node Title</span>
+              <kbd className="bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700 font-mono">Double Click</kbd>
+            </div>
+            <div className="flex justify-between">
+              <span>Delete Node</span>
+              <kbd className="bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700 font-mono">Backspace</kbd>
+            </div>
+            <div className="flex justify-between">
+              <span>Pan Canvas</span>
+              <kbd className="bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700 font-mono">Drag Backdrop</kbd>
+            </div>
+            <div className="flex justify-between">
+              <span>Zoom In / Out</span>
+              <kbd className="bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700 font-mono">Pinch / Scroll</kbd>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mini-map Widget (Bottom Right) */}
+      <div className="absolute bottom-3 sm:bottom-6 right-3 sm:right-6 z-40">
+        {showMinimap ? (
+          <div className="relative bg-white/90 backdrop-blur-md rounded-xl border border-slate-200 shadow-xl p-2 w-40 sm:w-48 h-28 sm:h-32 overflow-hidden">
+            <div className="flex justify-between items-center mb-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+              <span>Mini Map</span>
+              <button
+                onClick={() => setShowMinimap(false)}
+                className="text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="relative w-full h-20 sm:h-24 bg-slate-50 rounded border border-slate-200 overflow-hidden">
+              {nodes.map((n) => {
+                const miniX = (n.x / 18) + 80;
+                const miniY = (n.y / 18) + 35;
+                return (
+                  <div
+                    key={n.id}
+                    style={{
+                      left: `${miniX}px`,
+                      top: `${miniY}px`,
+                      backgroundColor: n.style.borderColor || '#4f46e5',
+                    }}
+                    className={`absolute w-2 h-1 rounded-xs ${
+                      selectedNodeId === n.id ? 'ring-2 ring-indigo-600 scale-150' : 'opacity-70'
+                    }`}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <button
+            id="show-minimap-btn"
+            onClick={() => setShowMinimap(true)}
+            className="p-2 sm:p-2.5 rounded-xl bg-white/90 backdrop-blur-md border border-slate-200 text-slate-600 hover:text-indigo-600 shadow-lg transition-colors cursor-pointer"
+            title="Show Mini Map"
+          >
+            <MapIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};

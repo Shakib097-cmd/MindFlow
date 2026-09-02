@@ -1,0 +1,6 @@
+{
+  "name": "MindFlow AI",
+  "description": "AI Workspace for Turning Ideas Into Action — convert notes, voice, and documents into mind maps, tasks, and action plans.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

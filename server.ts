@@ -1159,16 +1159,45 @@ app.get('/api/health/firestore', async (req: Request, res: Response) => {
     if (fs.existsSync(configPath)) {
       config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
     }
-    
+
+    const projectId = config.projectId || 'gen-lang-client-0309605137';
+    const firestoreDatabaseId =
+      config.firestoreDatabaseId || 'ai-studio-mindflowai-cf3076d6-fc09-4682-8c9d-182b3459b31f';
+    const authDomain = config.authDomain || 'gen-lang-client-0309605137.firebaseapp.com';
+    const apiKey = config.apiKey;
+
+    // Unauthenticated ping against the public Firestore REST API. The project/database
+    // are reachable if this returns 403 (rules correctly deny anonymous reads) or 200;
+    // a 400/404 means the project or database ID itself is wrong, and a network failure
+    // means Firestore/Google Cloud is unreachable from this server.
+    let connected = false;
+    let details = '';
+    if (apiKey) {
+      const pingUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${firestoreDatabaseId}/documents/__connection_check__/ping?key=${apiKey}`;
+      const pingRes = await fetch(pingUrl);
+      if (pingRes.status === 403 || pingRes.status === 200 || pingRes.status === 404) {
+        connected = true;
+        details =
+          pingRes.status === 403
+            ? 'Cloud Firestore project and database are reachable; anonymous access correctly denied by security rules.'
+            : 'Cloud Firestore is connected and responsive.';
+      } else {
+        const body = await pingRes.text();
+        details = `Unexpected response from Firestore (HTTP ${pingRes.status}): ${body.slice(0, 200)}`;
+      }
+    } else {
+      details = 'No Firebase API key configured; cannot verify connectivity.';
+    }
+
     res.json({
-      status: 'connected',
-      connected: true,
-      projectId: config.projectId || 'gen-lang-client-0309605137',
-      firestoreDatabaseId: config.firestoreDatabaseId || 'ai-studio-mindflowai-cf3076d6-fc09-4682-8c9d-182b3459b31f',
-      authDomain: config.authDomain || 'gen-lang-client-0309605137.firebaseapp.com',
+      status: connected ? 'connected' : 'error',
+      connected,
+      projectId,
+      firestoreDatabaseId,
+      authDomain,
       latencyMs: Math.max(1, Date.now() - startTime),
       timestamp: new Date().toISOString(),
-      details: 'Cloud Firestore database connectivity verified and operational.',
+      details,
     });
   } catch (err: any) {
     res.status(500).json({

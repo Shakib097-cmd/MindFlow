@@ -22,7 +22,10 @@ const SUPER_ADMIN_EMAIL = 'starcybercafe097@gmail.com';
 
 function getAdminHeaders(overrideRole?: AdminRole): HeadersInit {
   const currentUser = auth.currentUser;
-  const userEmail = currentUser?.email || localStorage.getItem('mindflow_admin_email') || SUPER_ADMIN_EMAIL;
+  const userEmail =
+    currentUser?.email?.trim().toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase()
+      ? SUPER_ADMIN_EMAIL
+      : currentUser?.email || localStorage.getItem('mindflow_admin_email') || '';
   const userId = currentUser?.uid || 'admin-starcybercafe';
   const role = overrideRole || (localStorage.getItem('mindflow_admin_role') as AdminRole) || 'SUPER_ADMIN';
 

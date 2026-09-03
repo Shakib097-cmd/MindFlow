@@ -658,22 +658,9 @@ export const LandingView: React.FC = () => {
                     </span>
                   </div>
                 </div>
-
-                <div className="pt-2">
-                  <button
-                    onClick={() => {
-                      setAuthMode('signup');
-                      setShowAuthModal(true);
-                    }}
-                    className="px-6 py-3.5 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white font-bold text-sm shadow-md transition-all flex items-center gap-2 cursor-pointer"
-                  >
-                    <span>Start Creating for Free</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                </div>
               </div>
 
-              {/* Kanban Interactive Graphic */}
+              {/* Kanban Graphic */}
               <div className="bg-slate-900/90 rounded-2xl p-5 border border-indigo-500/30 shadow-xl space-y-4">
                 <div className="flex items-center justify-between text-xs text-slate-300 pb-2 border-b border-slate-800">
                   <span className="font-bold flex items-center gap-1.5">
@@ -704,19 +691,6 @@ export const LandingView: React.FC = () => {
                       <div className="font-medium text-[11px] mt-0.5">Brainstorm 20+ Features</div>
                     </div>
                   </div>
-                </div>
-
-                <div className="p-3 rounded-xl bg-indigo-950/60 border border-indigo-500/40 text-[11px] text-indigo-200 flex items-center justify-between">
-                  <span>✨ 1-Click: "Convert Strategy Map to Sprint"</span>
-                  <span
-                    className="font-bold underline cursor-pointer"
-                    onClick={() => {
-                      setAuthMode('signup');
-                      setShowAuthModal(true);
-                    }}
-                  >
-                    Get Started Free
-                  </span>
                 </div>
               </div>
             </div>

@@ -1199,57 +1199,31 @@ interface AuthenticatedAdminRequest extends Request {
 }
 
 function verifyAdminToken(req: AuthenticatedAdminRequest, res: Response, next: NextFunction) {
-  const authHeader = req.headers.authorization;
   const userEmail = (req.headers['x-user-email'] as string) || '';
   const userId = (req.headers['x-user-id'] as string) || '';
-  const clientRole = (req.headers['x-admin-role'] as AdminRole) || undefined;
 
-  // Verify identity: strictly enforce Single Master Super Admin
-  let role: AdminRole | null = null;
-  let adminId = userId || 'admin-system';
-  let adminEmail = userEmail || SUPER_ADMIN_EMAIL;
-
-  if (userEmail.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase()) {
-    role = 'SUPER_ADMIN';
-    adminEmail = SUPER_ADMIN_EMAIL;
-  } else {
-    const adminRec = Array.from(adminUsersStore.values()).find(
-      (u) => u.email.toLowerCase() === userEmail.toLowerCase() && u.role !== 'USER'
-    );
-    if (adminRec && adminRec.status === 'active') {
-      // Prevent any other user from being SUPER_ADMIN
-      role = adminRec.role === 'SUPER_ADMIN' ? 'ADMIN' : (adminRec.role as AdminRole);
-      adminId = adminRec.id;
-    } else if (clientRole && ['ADMIN', 'SUPPORT', 'ANALYST'].includes(clientRole)) {
-      role = clientRole;
-    } else {
-      // Default to read-only SUPPORT / ANALYST for demo testing if authorized
-      role = 'ANALYST';
-    }
+  // Strictly enforce Single Master Admin: only starcybercafe097@gmail.com
+  if (userEmail.trim().toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase()) {
+    req.admin = {
+      id: userId || 'admin-system',
+      email: SUPER_ADMIN_EMAIL,
+      role: 'SUPER_ADMIN',
+    };
+    return next();
   }
 
-  if (!role) {
-    recordSecurityEvent(
-      'UNAUTHORIZED_ACCESS',
-      'high',
-      `Unauthorized attempt to access Admin API ${req.method} ${req.originalUrl}`,
-      userId,
-      req.ip
-    );
-    return res.status(403).json({
-      code: 'ADMIN_ACCESS_DENIED',
-      message: 'You do not have administrative permissions to access this resource.',
-      retryable: false,
-    });
-  }
-
-  req.admin = {
-    id: adminId,
-    email: adminEmail,
-    role,
-  };
-
-  next();
+  recordSecurityEvent(
+    'UNAUTHORIZED_ACCESS',
+    'high',
+    `Unauthorized attempt to access Admin API ${req.method} ${req.originalUrl} from email: ${userEmail || 'anonymous'}`,
+    userId,
+    req.ip
+  );
+  return res.status(403).json({
+    code: 'ADMIN_ACCESS_DENIED',
+    message: `Access denied. Only authorized administrator (${SUPER_ADMIN_EMAIL}) can access this administrative resource.`,
+    retryable: false,
+  });
 }
 
 function requireRole(allowedRoles: AdminRole[]) {

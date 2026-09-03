@@ -62,7 +62,10 @@ export const Navbar: React.FC = () => {
     openUserManual,
   } = useWorkspace();
 
-  const { profile, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
+  const isAdmin =
+    user?.email?.trim().toLowerCase() === 'starcybercafe097@gmail.com' ||
+    profile?.email?.trim().toLowerCase() === 'starcybercafe097@gmail.com';
   const [showCreateMenu, setShowCreateMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
@@ -413,14 +416,19 @@ export const Navbar: React.FC = () => {
                   <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
                   User Manual & Docs
                 </button>
-                <button
-                  id="user-menu-admin-btn"
-                  onClick={() => setCurrentView('admin')}
-                  className="w-full text-left px-4 py-1.5 text-xs hover:bg-indigo-50 text-indigo-700 flex items-center gap-2 font-semibold cursor-pointer"
-                >
-                  <Crown className="w-3.5 h-3.5 text-indigo-600" />
-                  Admin Console
-                </button>
+                {isAdmin && (
+                  <button
+                    id="user-menu-admin-btn"
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      setCurrentView('admin');
+                    }}
+                    className="w-full text-left px-4 py-1.5 text-xs hover:bg-indigo-50 text-indigo-700 flex items-center gap-2 font-semibold cursor-pointer"
+                  >
+                    <Crown className="w-3.5 h-3.5 text-indigo-600" />
+                    Admin Console
+                  </button>
+                )}
                 <button
                   id="user-menu-legal-btn"
                   onClick={() => openLegal('privacy')}

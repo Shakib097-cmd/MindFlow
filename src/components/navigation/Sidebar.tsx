@@ -30,8 +30,12 @@ import {
   Brain,
 } from 'lucide-react';
 import { AIUsageProgressBar } from '../common/AIUsageProgressBar';
+import { useAuth } from '../../context/AuthContext';
 
 export const Sidebar: React.FC = () => {
+  const { user } = useAuth();
+  const isAdmin = user?.email?.trim().toLowerCase() === 'starcybercafe097@gmail.com';
+
   const {
     currentView,
     setCurrentView,
@@ -443,14 +447,16 @@ export const Sidebar: React.FC = () => {
             </button>
           </div>
 
-          <button
-            id="sidebar-admin-console-btn"
-            onClick={() => handleNavigate('admin')}
-            className="w-full mt-2 flex items-center justify-center gap-2 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-semibold transition border border-slate-800 cursor-pointer shadow-xs"
-          >
-            <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Admin Console</span>
-          </button>
+          {isAdmin && (
+            <button
+              id="sidebar-admin-console-btn"
+              onClick={() => handleNavigate('admin')}
+              className="w-full mt-2 flex items-center justify-center gap-2 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-semibold transition border border-slate-800 cursor-pointer shadow-xs"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Admin Console</span>
+            </button>
+          )}
         </div>
       </div>
     </div>

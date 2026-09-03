@@ -52,7 +52,7 @@ export const LandingView: React.FC = () => {
     openUserManual,
     setIsPricingOpen,
   } = useWorkspace();
-  const { user, profile, signInWithGoogle, signInWithEmail, signUpWithEmail, loginAsGuest } = useAuth();
+  const { user, profile, signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth();
 
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showCookieModal, setShowCookieModal] = useState(false);
@@ -230,13 +230,6 @@ export const LandingView: React.FC = () => {
             ) : (
               <>
                 <button
-                  id="nav-open-demo-btn"
-                  onClick={() => setCurrentView('dashboard')}
-                  className="px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-700 hover:text-indigo-600 hover:bg-slate-100 transition-colors cursor-pointer"
-                >
-                  Live Demo
-                </button>
-                <button
                   id="nav-login-btn"
                   onClick={() => {
                     setAuthMode('signin');
@@ -318,16 +311,6 @@ export const LandingView: React.FC = () => {
               ) : (
                 <>
                   <button
-                    id="mobile-demo-btn"
-                    onClick={() => {
-                      setMobileMenuOpen(false);
-                      setCurrentView('dashboard');
-                    }}
-                    className="w-full py-2.5 rounded-xl text-sm font-semibold text-slate-700 bg-slate-100 text-center cursor-pointer"
-                  >
-                    Open Live Demo
-                  </button>
-                  <button
                     onClick={() => {
                       setMobileMenuOpen(false);
                       setAuthMode('signin');
@@ -408,12 +391,14 @@ export const LandingView: React.FC = () => {
                   </button>
 
                   <button
-                    id="hero-live-demo-btn"
-                    onClick={() => setCurrentView('dashboard')}
+                    id="hero-see-features-btn"
+                    onClick={() => {
+                      const el = document.getElementById('features');
+                      el?.scrollIntoView({ behavior: 'smooth' });
+                    }}
                     className="w-full sm:w-auto px-7 py-4 rounded-2xl bg-white hover:bg-slate-50 text-slate-700 hover:text-indigo-600 font-bold text-base border border-slate-200 shadow-xs transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    <Play className="w-4 h-4 text-indigo-600 fill-indigo-600" />
-                    <span>Try Live Demo</span>
+                    <span>Explore Features</span>
                   </button>
                 </>
               )}
@@ -1427,21 +1412,6 @@ export const LandingView: React.FC = () => {
                   </button>
                 </>
               )}
-            </div>
-
-            <div className="mt-4 pt-3 border-t border-slate-100 text-center">
-              <button
-                type="button"
-                id="auth-modal-guest-btn"
-                onClick={() => {
-                  loginAsGuest();
-                  setShowAuthModal(false);
-                  setCurrentView('dashboard');
-                }}
-                className="text-xs font-semibold text-slate-500 hover:text-indigo-600 transition-colors cursor-pointer"
-              >
-                Or explore live demo as guest →
-              </button>
             </div>
           </div>
         </div>

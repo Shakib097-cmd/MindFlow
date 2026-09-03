@@ -25,37 +25,9 @@ const NOTIFICATIONS_KEY = 'mindflow_notifications_v1';
 const USAGE_KEY = 'mindflow_usage_v1';
 const QUICK_NOTES_KEY = 'mindflow_quick_notes_v1';
 
-const SAMPLE_QUICK_NOTES: QuickNote[] = [
-  {
-    id: 'note-1',
-    title: 'Mobile Widget for Quick Capture',
-    content: 'Add an iOS/Android lock screen widget to capture fleeting thoughts on the go and auto-sync with the workspace.\n• Push to mind map inbox\n• Voice dictation shortcut\n• Offline cache',
-    tags: ['Idea', 'Mobile'],
-    color: 'amber',
-    createdAt: Date.now() - 3600000 * 5,
-    updatedAt: Date.now() - 3600000 * 5,
-  },
-  {
-    id: 'note-2',
-    title: 'Student Discount 50% Off',
-    content: 'Evaluate offering student discount 50% off Pro plan with .edu email verification.\n• Check Stripe Coupon APIs\n• Build onboarding verification banner\n• Announce on campus community channels',
-    tags: ['Growth', 'Pricing'],
-    color: 'emerald',
-    createdAt: Date.now() - 3600000 * 18,
-    updatedAt: Date.now() - 3600000 * 18,
-  },
-  {
-    id: 'note-3',
-    title: 'Deep Research Synthesis Model',
-    content: 'Integrate multi-source web grounding to extract market data directly into mind map SWOT branches.',
-    tags: ['AI', 'Research'],
-    color: 'indigo',
-    createdAt: Date.now() - 3600000 * 42,
-    updatedAt: Date.now() - 3600000 * 42,
-  },
-];
+const SAMPLE_QUICK_NOTES: QuickNote[] = [];
 
-// Seed demo initial folders
+// Initial workspace folders
 const INITIAL_FOLDERS: FolderItem[] = [
   { id: 'f-business', name: 'Business & Startup', color: '#4f46e5', icon: 'Briefcase', createdAt: Date.now() },
   { id: 'f-study', name: 'Study & Academics', color: '#d97706', icon: 'BookOpen', createdAt: Date.now() },
@@ -63,331 +35,45 @@ const INITIAL_FOLDERS: FolderItem[] = [
   { id: 'f-personal', name: 'Personal & Growth', color: '#db2777', icon: 'Heart', createdAt: Date.now() },
 ];
 
-// Seed initial demo map
+// Reserved demo ID for isolation
 const SAMPLE_MAP_ID = 'map-mindflow-demo';
-const SAMPLE_MAP: MindMap = {
-  id: SAMPLE_MAP_ID,
-  ownerId: 'demo-user',
-  folderId: 'f-business',
-  title: 'MindFlow AI — Product Strategy & Launch',
-  description: 'Master mind map connecting ideation, Gemini AI core, execution tasks, and monetization.',
-  category: 'Strategy',
-  visibility: 'private',
-  isFavorite: true,
-  layout: 'left-to-right',
-  rootNodeId: 'root-demo',
-  tags: ['Strategy', 'AI', 'Launch', 'SaaS'],
-  nodesCount: 10,
-  tasksCount: 4,
-  createdAt: Date.now() - 3600000 * 24,
-  updatedAt: Date.now(),
-};
 
-const SAMPLE_NODES: MindNode[] = [
-  {
-    id: 'root-demo',
-    mapId: SAMPLE_MAP_ID,
-    parentId: null,
-    title: 'MindFlow AI Master Workspace',
-    description: 'AI Workspace for turning ideas, voice, notes, and documents into action.',
-    type: 'standard',
-    x: 0,
-    y: 0,
-    width: 250,
-    height: 80,
-    style: {
-      shape: 'rounded',
-      backgroundColor: '#4f46e5',
-      textColor: '#ffffff',
-      borderColor: '#4338ca',
-      borderWidth: 2,
-      fontSize: 'xl',
-      fontWeight: 'bold',
-      textAlign: 'center',
-      shadow: 'lg',
-    },
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  },
-  {
-    id: 'node-ai',
-    mapId: SAMPLE_MAP_ID,
-    parentId: 'root-demo',
-    title: '1. Multimodal AI Engine',
-    description: 'Gemini 3.1 Pro Thinking Mode & Flash integration',
-    type: 'idea',
-    x: 290,
-    y: -140,
-    width: 210,
-    height: 65,
-    style: {
-      shape: 'rounded',
-      backgroundColor: '#f5f3ff',
-      textColor: '#4c1d95',
-      borderColor: '#8b5cf6',
-      borderWidth: 2,
-      fontSize: 'base',
-      fontWeight: 'semibold',
-      accentColor: '#7c3aed',
-    },
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  },
-  {
-    id: 'node-ai-1',
-    mapId: SAMPLE_MAP_ID,
-    parentId: 'node-ai',
-    title: 'Voice & Speech to Map',
-    description: 'Speech recognition transcript parsed into nodes',
-    type: 'task',
-    priority: 'high',
-    status: 'in_progress',
-    x: 540,
-    y: -170,
-    width: 190,
-    height: 55,
-    style: {
-      shape: 'pill',
-      backgroundColor: '#eff6ff',
-      textColor: '#1e3a8a',
-      borderColor: '#3b82f6',
-    },
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  },
-  {
-    id: 'node-ai-2',
-    mapId: SAMPLE_MAP_ID,
-    parentId: 'node-ai',
-    title: 'Document & OCR Parser',
-    description: 'Extract PDF/image notes with Gemini Vision',
-    type: 'task',
-    priority: 'medium',
-    status: 'done',
-    x: 540,
-    y: -110,
-    width: 190,
-    height: 55,
-    style: {
-      shape: 'pill',
-      backgroundColor: '#ecfdf5',
-      textColor: '#064e3b',
-      borderColor: '#10b981',
-    },
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  },
-  {
-    id: 'node-canvas',
-    mapId: SAMPLE_MAP_ID,
-    parentId: 'root-demo',
-    title: '2. Infinite Dynamic Canvas',
-    description: 'Bezier curves, auto-layouts & presentation mode',
-    type: 'idea',
-    x: 290,
-    y: -20,
-    width: 210,
-    height: 65,
-    style: {
-      shape: 'rounded',
-      backgroundColor: '#eff6ff',
-      textColor: '#1e3a8a',
-      borderColor: '#3b82f6',
-      borderWidth: 2,
-      fontSize: 'base',
-      fontWeight: 'semibold',
-      accentColor: '#2563eb',
-    },
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  },
-  {
-    id: 'node-canvas-1',
-    mapId: SAMPLE_MAP_ID,
-    parentId: 'node-canvas',
-    title: '6 Map Layout Algorithms',
-    description: 'Radial, Tree, L-to-R, R-to-L, Top-Down',
-    type: 'task',
-    priority: 'urgent',
-    status: 'done',
-    x: 540,
-    y: -20,
-    width: 190,
-    height: 55,
-    style: {
-      shape: 'pill',
-      backgroundColor: '#ecfdf5',
-      textColor: '#064e3b',
-      borderColor: '#10b981',
-    },
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  },
-  {
-    id: 'node-action',
-    mapId: SAMPLE_MAP_ID,
-    parentId: 'root-demo',
-    title: '3. Execution & Action Hub',
-    description: 'Turn map branches into Kanban tasks & goals',
-    type: 'goal',
-    x: 290,
-    y: 100,
-    width: 210,
-    height: 65,
-    style: {
-      shape: 'rounded',
-      backgroundColor: '#ecfdf5',
-      textColor: '#064e3b',
-      borderColor: '#10b981',
-      borderWidth: 2,
-      fontSize: 'base',
-      fontWeight: 'semibold',
-      accentColor: '#059669',
-    },
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  },
-  {
-    id: 'node-action-1',
-    mapId: SAMPLE_MAP_ID,
-    parentId: 'node-action',
-    title: '7/14/30 Day Action Plans',
-    description: 'AI-generated tactical milestones',
-    type: 'task',
-    priority: 'high',
-    status: 'in_progress',
-    x: 540,
-    y: 100,
-    width: 190,
-    height: 55,
-    style: {
-      shape: 'pill',
-      backgroundColor: '#eff6ff',
-      textColor: '#1e3a8a',
-      borderColor: '#3b82f6',
-    },
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  },
-  {
-    id: 'node-monetization',
-    mapId: SAMPLE_MAP_ID,
-    parentId: 'root-demo',
-    title: '4. SaaS Growth & Plans',
-    description: 'Free, Pro ($19/mo) and Business ($49/mo)',
-    type: 'goal',
-    x: 290,
-    y: 220,
-    width: 210,
-    height: 65,
-    style: {
-      shape: 'rounded',
-      backgroundColor: '#fff7ed',
-      textColor: '#7c2d12',
-      borderColor: '#f97316',
-      borderWidth: 2,
-      fontSize: 'base',
-      fontWeight: 'semibold',
-      accentColor: '#ea580c',
-    },
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  },
-];
+// Purge legacy demo keys and clean storage helper
+export function purgeLegacyDemoData(): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key) continue;
+      if (key.includes('map-mindflow-demo')) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach((k) => localStorage.removeItem(k));
+  } catch (e) {
+    console.warn('Notice while purging demo cache:', e);
+  }
+}
 
-const SAMPLE_EDGES: MindEdge[] = [
-  { id: 'e-1', mapId: SAMPLE_MAP_ID, sourceId: 'root-demo', targetId: 'node-ai', style: { color: '#8b5cf6', width: 2.5 } },
-  { id: 'e-1-1', mapId: SAMPLE_MAP_ID, sourceId: 'node-ai', targetId: 'node-ai-1', style: { color: '#3b82f6', width: 1.8 } },
-  { id: 'e-1-2', mapId: SAMPLE_MAP_ID, sourceId: 'node-ai', targetId: 'node-ai-2', style: { color: '#10b981', width: 1.8 } },
-  { id: 'e-2', mapId: SAMPLE_MAP_ID, sourceId: 'root-demo', targetId: 'node-canvas', style: { color: '#3b82f6', width: 2.5 } },
-  { id: 'e-2-1', mapId: SAMPLE_MAP_ID, sourceId: 'node-canvas', targetId: 'node-canvas-1', style: { color: '#10b981', width: 1.8 } },
-  { id: 'e-3', mapId: SAMPLE_MAP_ID, sourceId: 'root-demo', targetId: 'node-action', style: { color: '#10b981', width: 2.5 } },
-  { id: 'e-3-1', mapId: SAMPLE_MAP_ID, sourceId: 'node-action', targetId: 'node-action-1', style: { color: '#3b82f6', width: 1.8 } },
-  { id: 'e-4', mapId: SAMPLE_MAP_ID, sourceId: 'root-demo', targetId: 'node-monetization', style: { color: '#f97316', width: 2.5 } },
-];
-
-const SAMPLE_TASKS: TaskItem[] = [
-  {
-    id: 'task-1',
-    title: 'Test Multimodal Voice to Mind Map flow',
-    description: 'Ensure speech recognition and Gemini audio transcript prompt output valid nodes',
-    dueDate: new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0],
-    priority: 'high',
-    status: 'in_progress',
-    mapId: SAMPLE_MAP_ID,
-    mapTitle: SAMPLE_MAP.title,
-    nodeId: 'node-ai-1',
-    nodeTitle: 'Voice & Speech to Map',
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  },
-  {
-    id: 'task-2',
-    title: 'Generate SWOT template and AI Quiz Pack',
-    description: 'Ensure interactive flashcards flip cleanly and calculate test score',
-    dueDate: new Date(Date.now() + 86400000 * 4).toISOString().split('T')[0],
-    priority: 'medium',
-    status: 'done',
-    completedAt: Date.now() - 3600000 * 5,
-    mapId: SAMPLE_MAP_ID,
-    mapTitle: SAMPLE_MAP.title,
-    nodeId: 'node-canvas-1',
-    nodeTitle: '6 Map Layout Algorithms',
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  },
-  {
-    id: 'task-3',
-    title: 'Create 30-day product launch action plan',
-    description: 'Auto-convert strategic nodes into prioritized sprint milestones',
-    dueDate: new Date(Date.now() + 86400000 * 7).toISOString().split('T')[0],
-    priority: 'urgent',
-    status: 'todo',
-    mapId: SAMPLE_MAP_ID,
-    mapTitle: SAMPLE_MAP.title,
-    nodeId: 'node-action-1',
-    nodeTitle: '7/14/30 Day Action Plans',
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  },
-];
-
-const SAMPLE_GOALS: GoalItem[] = [
-  {
-    id: 'goal-1',
-    title: 'Launch MindFlow AI Public Beta to 10,000 Users',
-    description: 'Achieve smooth onboarding, high engagement on AI mind mapping, and 15% conversion to Pro plan.',
-    deadline: new Date(Date.now() + 86400000 * 30).toISOString().split('T')[0],
-    progress: 65,
-    category: 'Product & Growth',
-    mapId: SAMPLE_MAP_ID,
-    mapTitle: SAMPLE_MAP.title,
-    milestones: [
-      { id: 'm1', text: 'Build AI Mind Map & Multimodal generators', completed: true },
-      { id: 'm2', text: 'Implement 6 layout algorithms and infinite canvas', completed: true },
-      { id: 'm3', text: 'Action Hub: Tasks & Goals synchronization', completed: true },
-      { id: 'm4', text: 'AI Study Assistant & Presentation Deck generator', completed: true },
-      { id: 'm5', text: 'First 100 beta test signups & feedback round', completed: false },
-    ],
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  },
-];
+if (typeof window !== 'undefined') {
+  purgeLegacyDemoData();
+}
 
 const INITIAL_USAGE: UsageData = {
   userId: 'current-user',
-  aiGenerationsUsed: 3,
+  aiGenerationsUsed: 0,
   aiGenerationsLimit: 50,
-  mapsCreated: 1,
+  mapsCreated: 0,
   mapsLimit: 10,
-  storageMbUsed: 2.4,
+  storageMbUsed: 0,
   storageMbLimit: 50,
-  exportsUsed: 2,
+  exportsUsed: 0,
   exportsLimit: 25,
-  voiceMinutesUsed: 4,
+  voiceMinutesUsed: 0,
   voiceMinutesLimit: 30,
-  periodStart: Date.now() - 86400000 * 10,
-  periodEnd: Date.now() + 86400000 * 20,
+  periodStart: Date.now(),
+  periodEnd: Date.now() + 86400000 * 30,
 };
 
 // Storage Helpers

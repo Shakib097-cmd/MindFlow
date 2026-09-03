@@ -134,9 +134,10 @@ export const AdminSettingsView: React.FC = () => {
                   onChange={(e) => setSettings({ ...settings, defaultAIModel: e.target.value })}
                   className="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-60"
                 >
+                  <option value="gemini-3.8-flash">Gemini 3.8 Flash (Recommended — Ultra Fast &amp; Multimodal)</option>
                   <option value="gemini-3.7-flash">Gemini 3.7 Flash (High Speed &amp; Reasoning)</option>
-                  <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Deep Thinking Engine)</option>
                   <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite (Ultra Lightweight)</option>
+                  <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Deep Thinking Engine)</option>
                 </select>
                 <p className="text-[10px] text-slate-500 mt-1">
                   Selected model is orchestrated securely through the backend proxy.

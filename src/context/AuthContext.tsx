@@ -20,7 +20,6 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, pass: string) => Promise<void>;
   signUpWithEmail: (email: string, pass: string, name: string) => Promise<void>;
-  loginAsGuest: () => void;
   loginAsAdmin: () => void;
   loginAsEmailUser: (email: string, name?: string) => void;
   signOut: () => Promise<void>;
@@ -46,7 +45,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const parsed = JSON.parse(saved);
         setProfile(parsed);
-        if (parsed.id === 'demo-guest-user' || parsed.id === 'creator-guest') {
+        if (parsed.id === 'creator-guest') {
           setIsGuest(true);
         }
       } catch (err) {
@@ -233,23 +232,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem(LOCAL_PROFILE_KEY, JSON.stringify(newProfile));
   };
 
-  const loginAsGuest = () => {
-    const guestProfile: UserProfile = {
-      id: 'demo-guest-user',
-      name: 'Alex Rivera (Demo)',
-      email: 'alex.rivera@mindflow.ai',
-      photoURL: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
-      plan: 'pro',
-      onboardingCompleted: true,
-      role: 'Startup Founder & Strategist',
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-    setIsGuest(true);
-    setProfile(guestProfile);
-    localStorage.setItem(LOCAL_PROFILE_KEY, JSON.stringify(guestProfile));
-  };
-
   const signOut = async () => {
     try {
       await fbSignOut(auth);
@@ -268,6 +250,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setProfile(updated);
       localStorage.setItem(LOCAL_PROFILE_KEY, JSON.stringify(updated));
       updateFirestorePlan(profile.id, plan);
+
+      // Sync with server billing endpoint for authoritative quota enforcement
+      fetch('/api/billing/change-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: profile.id, plan }),
+      }).catch((e) => console.warn('Billing plan change sync notice:', e));
     }
   };
 
@@ -294,7 +283,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signInWithGoogle,
         signInWithEmail,
         signUpWithEmail,
-        loginAsGuest,
         loginAsAdmin,
         loginAsEmailUser,
         signOut,

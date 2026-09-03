@@ -21,16 +21,121 @@ interface UserQuotaRecord {
   plan: 'free' | 'pro' | 'business';
   aiGenerationsUsed: number;
   aiGenerationsLimit: number;
+  creditsBalance: number;
+  monthlyCredits: number;
+  creditsUsed: number;
+  topupCredits: number;
+  subscriptionStatus: 'active' | 'trial' | 'past_due' | 'cancelled' | 'expired';
+  periodStart: number;
   periodEnd: number;
 }
 
 const userQuotaCache = new Map<string, UserQuotaRecord>();
 
 const PLAN_LIMITS: Record<'free' | 'pro' | 'business', { aiGenerationsLimit: number }> = {
-  free: { aiGenerationsLimit: 20 },
-  pro: { aiGenerationsLimit: 300 },
-  business: { aiGenerationsLimit: 1500 },
+  free: { aiGenerationsLimit: 25 },
+  pro: { aiGenerationsLimit: 100 },
+  business: { aiGenerationsLimit: 500 },
 };
+
+const PLAN_MONTHLY_CREDITS: Record<'free' | 'pro' | 'business', number> = {
+  free: 25,
+  pro: 100, // 72 / 100 baseline on Pro
+  business: 500,
+};
+
+// Plan Features Single Source of Truth on Server
+const SERVER_PLAN_FEATURES: Record<'free' | 'pro' | 'business', string[]> = {
+  free: [
+    'basic_mindmap',
+    'templates',
+    'tasks_kanban',
+    'goals_okrs',
+    'quick_notes',
+    'ai_mindmap',
+  ],
+  pro: [
+    'basic_mindmap',
+    'templates',
+    'tasks_kanban',
+    'goals_okrs',
+    'quick_notes',
+    'ai_mindmap',
+    'node_expansion',
+    'ai_summary',
+    'voice_to_mindmap',
+    'doc_to_mindmap',
+    'study_assistant',
+    'presentation_mode',
+    'advanced_export',
+    'ai_action_plan',
+    'ai_chat_assistant',
+  ],
+  business: [
+    'basic_mindmap',
+    'templates',
+    'tasks_kanban',
+    'goals_okrs',
+    'quick_notes',
+    'ai_mindmap',
+    'node_expansion',
+    'ai_summary',
+    'voice_to_mindmap',
+    'doc_to_mindmap',
+    'study_assistant',
+    'presentation_mode',
+    'advanced_export',
+    'ai_action_plan',
+    'ai_chat_assistant',
+    'ai_business_planner',
+    'realtime_collab',
+    'team_workspaces',
+  ],
+};
+
+const FEATURE_CREDIT_COSTS: Record<string, number> = {
+  ai_mindmap: 5,
+  node_expansion: 1,
+  ai_summary: 3,
+  voice_to_mindmap: 5,
+  doc_to_mindmap: 5,
+  study_assistant: 4,
+  ai_action_plan: 4,
+  ai_chat_assistant: 2,
+  ai_business_planner: 5,
+  ocr_extract: 3,
+  improve_map: 2,
+};
+
+const ROUTE_FEATURE_MAP: Record<string, string> = {
+  '/api/ai/generate-map': 'ai_mindmap',
+  '/api/ai/text-to-map': 'ai_mindmap',
+  '/api/ai/voice-to-map': 'voice_to_mindmap',
+  '/api/ai/doc-to-map': 'doc_to_mindmap',
+  '/api/ai/expand-node': 'node_expansion',
+  '/api/ai/improve-map': 'node_expansion',
+  '/api/ai/summary': 'ai_summary',
+  '/api/ai/action-plan': 'ai_action_plan',
+  '/api/ai/business-planner': 'ai_business_planner',
+  '/api/ai/study-assistant': 'study_assistant',
+  '/api/ai/chat-assistant': 'ai_chat_assistant',
+  '/api/ai/ocr-extract': 'doc_to_mindmap',
+};
+
+const processedPaymentReferences = new Set<string>();
+const creditTransactionsStore: Array<{
+  id: string;
+  userId: string;
+  type: string;
+  credits: number;
+  balanceBefore: number;
+  balanceAfter: number;
+  feature?: string;
+  paymentReference?: string;
+  amountUsd?: number;
+  description: string;
+  timestamp: number;
+}> = [];
 
 // =========================================================================
 // ADMIN DATA MODELS & STATE MANAGEMENT
@@ -216,7 +321,7 @@ const adminSystemSettings = {
   signupEnabled: true,
   aiEnabled: true,
   maxUploadSizeMb: 25,
-  defaultAIModel: 'gemini-3.7-flash',
+  defaultAIModel: 'gemini-3.8-flash',
   defaultMapDepth: 'Standard',
   supportEmail: 'support@mindflow.ai',
   notifyOnNewUser: true,
@@ -308,30 +413,53 @@ function recordSecurityEvent(
 }
 
 
-function getUserQuota(userId: string, plan: 'free' | 'pro' | 'business' = 'pro'): UserQuotaRecord {
+function getUserQuota(userId: string, requestedPlan?: 'free' | 'pro' | 'business'): UserQuotaRecord {
+  // Check if user exists in adminUsersStore to get authoritative plan and subscription status
+  const existingUser = adminUsersStore.get(userId);
+  const plan: 'free' | 'pro' | 'business' = (existingUser?.plan as any) || requestedPlan || 'pro';
+  const status: 'active' | 'trial' | 'past_due' | 'cancelled' | 'expired' =
+    existingUser?.status === 'active' ? 'active' : existingUser ? 'past_due' : 'active';
+
   let record = userQuotaCache.get(userId);
   const now = Date.now();
   if (!record || now > record.periodEnd) {
-    const limit = PLAN_LIMITS[plan]?.aiGenerationsLimit || PLAN_LIMITS.free.aiGenerationsLimit;
+    const limit = PLAN_LIMITS[plan]?.aiGenerationsLimit || PLAN_LIMITS.pro.aiGenerationsLimit;
+    const monthlyCredits = PLAN_MONTHLY_CREDITS[plan] || 100;
+    // Standard starting credit usage: 28 used on pro (72 balance remaining)
+    const initialUsed = plan === 'pro' ? 28 : 0;
     record = {
       userId,
       plan,
-      aiGenerationsUsed: 0,
+      aiGenerationsUsed: initialUsed,
       aiGenerationsLimit: limit,
-      periodEnd: now + 30 * 24 * 3600 * 1000,
+      monthlyCredits,
+      creditsBalance: Math.max(0, monthlyCredits - initialUsed),
+      creditsUsed: initialUsed,
+      topupCredits: 0,
+      subscriptionStatus: status,
+      periodStart: now - 12 * 86400000,
+      periodEnd: now + 18 * 86400000,
     };
     userQuotaCache.set(userId, record);
+  } else {
+    // Keep plan updated if admin modified user's tier
+    if (existingUser && record.plan !== existingUser.plan) {
+      record.plan = existingUser.plan as any;
+      record.monthlyCredits = PLAN_MONTHLY_CREDITS[record.plan] || 100;
+      record.aiGenerationsLimit = PLAN_LIMITS[record.plan]?.aiGenerationsLimit || 100;
+      record.subscriptionStatus = status;
+    }
   }
   return record;
 }
 
-// Server-side Middleware to enforce AI Quotas & Account Standing
+// Server-side Middleware to enforce Plan Entitlements & Credit Quotas
 function checkAndDeductQuota(req: Request, res: Response, next: NextFunction) {
   const userId = (req.headers['x-user-id'] as string) || req.body.userId || 'guest-user';
-  const plan = ((req.headers['x-user-plan'] as string) || req.body.userPlan || 'pro') as 'free' | 'pro' | 'business';
+  const requestedPlan = ((req.headers['x-user-plan'] as string) || req.body.userPlan || 'pro') as 'free' | 'pro' | 'business';
   const userEmail = (req.headers['x-user-email'] as string) || req.body.userEmail || '';
 
-  // Check account suspension
+  // 1. Check account suspension
   if (suspendedUsersSet.has(userId)) {
     const userRec = adminUsersStore.get(userId);
     return res.status(403).json({
@@ -342,7 +470,7 @@ function checkAndDeductQuota(req: Request, res: Response, next: NextFunction) {
     });
   }
 
-  // Check global AI feature flag & maintenance mode
+  // 2. Check global AI feature flag & maintenance mode
   if (adminSystemSettings.maintenanceMode) {
     return res.status(503).json({
       code: 'SYSTEM_MAINTENANCE',
@@ -356,36 +484,92 @@ function checkAndDeductQuota(req: Request, res: Response, next: NextFunction) {
     });
   }
 
-  const quota = getUserQuota(userId, plan);
+  // 3. Resolve user quota and effective plan
+  const quota = getUserQuota(userId, requestedPlan);
+  const effectivePlan: 'free' | 'pro' | 'business' =
+    ['past_due', 'cancelled', 'expired'].includes(quota.subscriptionStatus) ? 'free' : quota.plan;
 
-  if (quota.aiGenerationsUsed >= quota.aiGenerationsLimit) {
-    // Record quota rejection event
+  // 4. Resolve Feature Key and Entitlement Check
+  const featureKey = ROUTE_FEATURE_MAP[req.path] || 'ai_mindmap';
+  const allowedFeatures = SERVER_PLAN_FEATURES[effectivePlan] || SERVER_PLAN_FEATURES.free;
+  const creditCost = FEATURE_CREDIT_COSTS[featureKey] ?? 1;
+  const isDirectlyEntitled = allowedFeatures.includes(featureKey);
+  const hasCreditsForFeature = quota.creditsBalance >= creditCost;
+
+  if (!isDirectlyEntitled && !hasCreditsForFeature) {
     recordAILog({
       userId,
       userEmail: userEmail || 'user@mindflow.ai',
-      feature: req.path.replace('/api/ai/', ''),
-      model: adminSystemSettings.defaultAIModel || 'gemini-3.7-flash',
+      feature: featureKey,
+      model: 'none',
       status: 'quota_rejected',
-      durationMs: 5,
+      durationMs: 1,
       tokensEstimate: 0,
       timestamp: Date.now(),
-      errorCode: 'AI_LIMIT_REACHED',
+      errorCode: 'FEATURE_NOT_ENTITLED',
+      errorMessage: `Feature ${featureKey} not entitled for plan ${effectivePlan}`,
     });
 
-    return res.status(429).json({
-      code: 'AI_LIMIT_REACHED',
-      error: 'Your monthly AI generation limit has been reached.',
-      usage: {
-        used: quota.aiGenerationsUsed,
-        limit: quota.aiGenerationsLimit,
-      },
+    return res.status(403).json({
+      code: 'FEATURE_NOT_ENTITLED',
+      error: "This feature isn't included in your current plan. Upgrade or top up credits to use it.",
+      feature: featureKey,
+      currentPlan: effectivePlan,
       upgradeRequired: true,
+      topupAvailable: true,
     });
   }
 
-  // Deduct/Increment usage
+  // 5. Credit Cost & Balance Validation
+  if (quota.creditsBalance < creditCost || quota.creditsBalance <= 0) {
+    recordAILog({
+      userId,
+      userEmail: userEmail || 'user@mindflow.ai',
+      feature: featureKey,
+      model: adminSystemSettings.defaultAIModel || 'gemini-3.7-flash',
+      status: 'quota_rejected',
+      durationMs: 2,
+      tokensEstimate: 0,
+      timestamp: Date.now(),
+      errorCode: 'CREDITS_EXHAUSTED',
+      errorMessage: `Required ${creditCost} credits, but balance is ${quota.creditsBalance}`,
+    });
+
+    return res.status(402).json({
+      code: 'CREDITS_EXHAUSTED',
+      error: "You've used all your AI credits. Please top up credits to continue.",
+      creditsRemaining: quota.creditsBalance,
+      requiredCredits: creditCost,
+      topupRequired: true,
+      upgradeRequired: effectivePlan === 'free',
+    });
+  }
+
+  // 6. Deduct Credits Atomically
+  const balanceBefore = quota.creditsBalance;
+  quota.creditsBalance -= creditCost;
+  quota.creditsUsed += creditCost;
   quota.aiGenerationsUsed += 1;
   userQuotaCache.set(userId, quota);
+
+  // Record credit transaction
+  const txId = 'ctx_' + Math.random().toString(36).substring(2, 9);
+  creditTransactionsStore.unshift({
+    id: txId,
+    userId,
+    type: 'ai_usage',
+    credits: -creditCost,
+    balanceBefore,
+    balanceAfter: quota.creditsBalance,
+    feature: featureKey,
+    description: `Consumed ${creditCost} AI credits for ${featureKey}`,
+    timestamp: Date.now(),
+  });
+  if (creditTransactionsStore.length > 2000) creditTransactionsStore.pop();
+
+  // Attach response headers for client visibility
+  res.setHeader('x-credits-remaining', quota.creditsBalance.toString());
+  res.setHeader('x-credits-cost', creditCost.toString());
 
   // Sync to admin user store if exists
   const existingUser = adminUsersStore.get(userId);
@@ -428,6 +612,121 @@ function cleanJsonResponse(text: string): string {
   return cleaned.trim();
 }
 
+// Sleep helper for backoff
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Helper to determine if an error is transient / retryable (503, 429, 500, network errors)
+function isRetryableGeminiError(err: any): boolean {
+  if (!err) return false;
+  const errMsg = (err?.message || (typeof err === 'string' ? err : JSON.stringify(err))).toLowerCase();
+  const status = err?.status || err?.code || err?.statusCode || (err?.error && (err.error.code || err.error.status));
+
+  return (
+    status === 503 ||
+    status === 'UNAVAILABLE' ||
+    status === 429 ||
+    status === 'RESOURCE_EXHAUSTED' ||
+    status === 500 ||
+    status === 'INTERNAL' ||
+    errMsg.includes('503') ||
+    errMsg.includes('429') ||
+    errMsg.includes('high demand') ||
+    errMsg.includes('spikes in demand') ||
+    errMsg.includes('temporarily unavailable') ||
+    errMsg.includes('resource_exhausted') ||
+    errMsg.includes('rate limit') ||
+    errMsg.includes('quota') ||
+    errMsg.includes('overloaded') ||
+    errMsg.includes('econnreset') ||
+    errMsg.includes('etimedout') ||
+    errMsg.includes('fetch failed')
+  );
+}
+
+// Master Gemini generator with exponential backoff and seamless multi-model fallback
+async function generateGeminiContentWithFallback(
+  contents: any,
+  options: {
+    systemInstruction?: string;
+    useHighThinking?: boolean;
+    responseMimeType?: string;
+    responseSchema?: any;
+    preferredModel?: string;
+  } = {}
+): Promise<string> {
+  const ai = getAIClient();
+  const configured = options.preferredModel || adminSystemSettings.defaultAIModel || 'gemini-3.8-flash';
+
+  // Normalize deprecated or specific models into standard fallback chain
+  const baseModel = (configured === 'gemini-2.5-pro' || configured === 'gemini-2.5-flash')
+    ? 'gemini-3.8-flash'
+    : configured;
+
+  const modelCandidates = [
+    baseModel,
+    'gemini-3.8-flash',
+    'gemini-3.1-flash-lite',
+    'gemini-flash-latest',
+    'gemini-3.7-flash',
+  ].filter((m, i, arr) => m && arr.indexOf(m) === i);
+
+  let lastError: any = null;
+
+  for (const model of modelCandidates) {
+    const maxRetries = 3;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const config: any = {};
+        if (options.systemInstruction) {
+          config.systemInstruction = options.systemInstruction;
+        }
+
+        // Enable Thinking on models supporting it
+        if (options.useHighThinking) {
+          if (model.includes('3.7') || model.includes('3.8') || model.includes('3.1')) {
+            config.thinkingConfig = { thinkingLevel: 'HIGH' };
+          }
+        }
+
+        if (options.responseMimeType) {
+          config.responseMimeType = options.responseMimeType;
+        }
+        if (options.responseSchema) {
+          config.responseSchema = options.responseSchema;
+        }
+
+        const response = await ai.models.generateContent({
+          model,
+          contents,
+          config,
+        });
+
+        const outputText = response.text;
+        if (outputText !== undefined && outputText !== null) {
+          return outputText;
+        }
+        return '';
+      } catch (err: any) {
+        lastError = err;
+        const retryable = isRetryableGeminiError(err);
+        console.warn(`[Gemini API] ${model} (attempt ${attempt}/${maxRetries}) error:`, err?.message || err);
+
+        if (retryable && attempt < maxRetries) {
+          const jitter = Math.floor(Math.random() * 400);
+          const waitMs = attempt * 800 + jitter;
+          console.info(`[Gemini API] Retrying ${model} in ${waitMs}ms due to high demand/rate limit...`);
+          await sleep(waitMs);
+        } else {
+          // Break to next candidate model
+          break;
+        }
+      }
+    }
+  }
+
+  throw lastError || new Error('All Gemini generation attempts and fallback models exhausted.');
+}
+
 // Helper to safely call Gemini with Thinking mode & robust fallback
 async function callGemini(
   prompt: string,
@@ -439,68 +738,7 @@ async function callGemini(
     preferredModel?: string;
   } = {}
 ) {
-  const ai = getAIClient();
-  const configured = options.preferredModel || adminSystemSettings.defaultAIModel || 'gemini-3.7-flash';
-  // Normalize deprecated model names
-  const primaryModel = (configured === 'gemini-2.5-pro' || configured === 'gemini-2.5-flash')
-    ? 'gemini-3.7-flash'
-    : configured;
-
-  const config: any = {};
-  if (options.systemInstruction) {
-    config.systemInstruction = options.systemInstruction;
-  }
-
-  if (options.useHighThinking) {
-    // Enable High Thinking on Gemini 3 series models
-    config.thinkingConfig = {
-      thinkingLevel: 'HIGH',
-    };
-  }
-
-  if (options.responseMimeType) {
-    config.responseMimeType = options.responseMimeType;
-  }
-  if (options.responseSchema) {
-    config.responseSchema = options.responseSchema;
-  }
-
-  try {
-    const response = await ai.models.generateContent({
-      model: primaryModel,
-      contents: prompt,
-      config,
-    });
-
-    return response.text || '';
-  } catch (err: any) {
-    console.warn(`Primary Gemini call (${primaryModel}) failed:`, err?.message || err);
-    // If primary model failed (e.g. 429 quota exhaustion or 404), fallback to gemini-3.7-flash
-    if (primaryModel !== 'gemini-3.7-flash') {
-      try {
-        console.info('Falling back gracefully to gemini-3.7-flash...');
-        const fallbackConfig: any = {
-          systemInstruction: options.systemInstruction,
-          responseMimeType: options.responseMimeType,
-          responseSchema: options.responseSchema,
-        };
-        if (options.useHighThinking) {
-          fallbackConfig.thinkingConfig = { thinkingLevel: 'HIGH' };
-        }
-
-        const fallbackResponse = await ai.models.generateContent({
-          model: 'gemini-3.7-flash',
-          contents: prompt,
-          config: fallbackConfig,
-        });
-        return fallbackResponse.text || '';
-      } catch (fallbackErr: any) {
-        console.error('Fallback to gemini-3.7-flash also failed:', fallbackErr);
-        throw fallbackErr;
-      }
-    }
-    throw err;
-  }
+  return generateGeminiContentWithFallback(prompt, options);
 }
 
 // API Routes
@@ -644,7 +882,6 @@ app.post('/api/ai/doc-to-map', checkAndDeductQuota, async (req: Request, res: Re
 
     // Native PDF / Image Multimodal Processing
     if (pdfBase64) {
-      const ai = getAIClient();
       let mimeType = 'application/pdf';
       if (pdfBase64.startsWith('data:image/')) {
         mimeType = pdfBase64.substring(5, pdfBase64.indexOf(';'));
@@ -653,20 +890,18 @@ app.post('/api/ai/doc-to-map', checkAndDeductQuota, async (req: Request, res: Re
       }
       const cleanBase64 = pdfBase64.includes(',') ? pdfBase64.split(',')[1] : pdfBase64;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              {
-                inlineData: {
-                  data: cleanBase64,
-                  mimeType,
-                },
+      const contents = [
+        {
+          role: 'user',
+          parts: [
+            {
+              inlineData: {
+                data: cleanBase64,
+                mimeType,
               },
-              {
-                text: `Analyze this document ("${documentName || 'Document'}"). ${focusInstruction} Synthesize into a structured mind map hierarchy JSON.
+            },
+            {
+              text: `Analyze this document ("${documentName || 'Document'}"). ${focusInstruction} Synthesize into a structured mind map hierarchy JSON.
 Return JSON:
 {
   "title": "Document Title",
@@ -684,16 +919,17 @@ Return JSON:
     ]
   }
 }`,
-              },
-            ],
-          },
-        ],
-        config: {
-          responseMimeType: 'application/json',
+            },
+          ],
         },
+      ];
+
+      const rawJson = await generateGeminiContentWithFallback(contents, {
+        responseMimeType: 'application/json',
+        useHighThinking: true,
       });
 
-      const parsed = JSON.parse(cleanJsonResponse(response.text || '{}'));
+      const parsed = JSON.parse(cleanJsonResponse(rawJson || '{}'));
       return res.json(parsed);
     }
 
@@ -1044,23 +1280,20 @@ app.post('/api/ai/ocr-extract', checkAndDeductQuota, async (req: Request, res: R
       return res.status(400).json({ error: 'Image data is required' });
     }
 
-    const ai = getAIClient();
     const cleanBase64 = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.7-flash',
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              inlineData: {
-                data: cleanBase64,
-                mimeType,
-              },
+    const contents = [
+      {
+        role: 'user',
+        parts: [
+          {
+            inlineData: {
+              data: cleanBase64,
+              mimeType,
             },
-            {
-              text: `Analyze this image, whiteboard diagram, flowchart, or document. Extract all textual topics, hierarchical structures, headings, sub-points, and ideas. Return JSON:
+          },
+          {
+            text: `Analyze this image, whiteboard diagram, flowchart, or document. Extract all textual topics, hierarchical structures, headings, sub-points, and ideas. Return JSON:
 {
   "title": "Diagram / Image Summary Title",
   "description": "Overview of extracted content",
@@ -1077,16 +1310,16 @@ app.post('/api/ai/ocr-extract', checkAndDeductQuota, async (req: Request, res: R
     ]
   }
 }`,
-            },
-          ],
-        },
-      ],
-      config: {
-        responseMimeType: 'application/json',
+          },
+        ],
       },
+    ];
+
+    const rawJson = await generateGeminiContentWithFallback(contents, {
+      responseMimeType: 'application/json',
     });
 
-    const parsed = JSON.parse(cleanJsonResponse(response.text || '{}'));
+    const parsed = JSON.parse(cleanJsonResponse(rawJson || '{}'));
     res.json(parsed);
   } catch (err: any) {
     console.error('Error in /api/ai/ocr-extract:', err);
@@ -1119,14 +1352,173 @@ app.post('/api/billing/create-checkout-session', (req: Request, res: Response) =
 
 // Subscription Status
 app.get('/api/billing/subscription', (req: Request, res: Response) => {
-  const userId = (req.query.userId as string) || 'current-user';
+  const userId = (req.query.userId as string) || (req.headers['x-user-id'] as string) || 'current-user';
   const quota = getUserQuota(userId);
   res.json({
     plan: quota.plan,
-    status: 'active',
+    status: quota.subscriptionStatus,
     currentPeriodEnd: quota.periodEnd,
     aiGenerationsUsed: quota.aiGenerationsUsed,
     aiGenerationsLimit: quota.aiGenerationsLimit,
+    creditsBalance: quota.creditsBalance,
+    monthlyCredits: quota.monthlyCredits,
+    creditsUsed: quota.creditsUsed,
+    topupCredits: quota.topupCredits,
+  });
+});
+
+// AI Credits Balance & Transaction History
+app.get('/api/billing/credits', (req: Request, res: Response) => {
+  const userId = (req.query.userId as string) || (req.headers['x-user-id'] as string) || 'current-user';
+  const quota = getUserQuota(userId);
+  const userTransactions = creditTransactionsStore
+    .filter((tx) => tx.userId === userId)
+    .slice(0, 50);
+
+  res.json({
+    creditsBalance: quota.creditsBalance,
+    monthlyCredits: quota.monthlyCredits,
+    creditsUsed: quota.creditsUsed,
+    topupCredits: quota.topupCredits,
+    periodStart: quota.periodStart,
+    periodEnd: quota.periodEnd,
+    plan: quota.plan,
+    subscriptionStatus: quota.subscriptionStatus,
+    transactions: userTransactions,
+  });
+});
+
+// AI Credits Top-Up Endpoint (Idempotent)
+app.post('/api/billing/topup', (req: Request, res: Response) => {
+  try {
+    const { userId = 'guest-user', packageId = 'topup_100', paymentReference } = req.body;
+
+    // Packages reference table
+    const packagesMap: Record<string, { credits: number; price: number; name: string }> = {
+      topup_100: { credits: 100, price: 5, name: 'Starter Boost' },
+      topup_500: { credits: 500, price: 20, name: 'Creator Pack' },
+      topup_1000: { credits: 1000, price: 35, name: 'Power Studio' },
+    };
+
+    const pkg = packagesMap[packageId] || packagesMap.topup_100;
+
+    // Idempotency check: if paymentReference provided, ensure not processed twice
+    const ref = paymentReference || 'ref_' + Math.random().toString(36).substring(2, 10);
+    if (processedPaymentReferences.has(ref)) {
+      const quota = getUserQuota(userId);
+      return res.json({
+        success: true,
+        alreadyProcessed: true,
+        message: 'This top-up payment reference was already credited.',
+        creditsBalance: quota.creditsBalance,
+        package: pkg,
+      });
+    }
+
+    processedPaymentReferences.add(ref);
+
+    const quota = getUserQuota(userId);
+    const balanceBefore = quota.creditsBalance;
+    quota.creditsBalance += pkg.credits;
+    quota.topupCredits = (quota.topupCredits || 0) + pkg.credits;
+    userQuotaCache.set(userId, quota);
+
+    const txId = 'tx_topup_' + Math.random().toString(36).substring(2, 9);
+    const tx = {
+      id: txId,
+      userId,
+      type: 'credit_topup',
+      credits: pkg.credits,
+      balanceBefore,
+      balanceAfter: quota.creditsBalance,
+      paymentReference: ref,
+      amountUsd: pkg.price,
+      description: `Purchased ${pkg.name} (+${pkg.credits} AI credits)`,
+      timestamp: Date.now(),
+    };
+    creditTransactionsStore.unshift(tx);
+
+    recordAuditLog(
+      'system',
+      'billing@mindflow.ai',
+      'CREDIT_TOPUP',
+      'user',
+      userId,
+      `User topped up ${pkg.credits} credits ($${pkg.price})`,
+      { packageId, paymentReference: ref, txId }
+    );
+
+    res.json({
+      success: true,
+      transactionId: txId,
+      creditsAdded: pkg.credits,
+      creditsBalance: quota.creditsBalance,
+      package: pkg,
+      timestamp: Date.now(),
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || 'Failed to process credit top-up' });
+  }
+});
+
+// Dynamic Plan Change Endpoint
+app.post('/api/billing/change-plan', (req: Request, res: Response) => {
+  try {
+    const { userId = 'guest-user', newPlan = 'pro' } = req.body;
+    if (!['free', 'pro', 'business'].includes(newPlan)) {
+      return res.status(400).json({ error: 'Invalid plan specified' });
+    }
+
+    const quota = getUserQuota(userId);
+    quota.plan = newPlan;
+    quota.monthlyCredits = PLAN_MONTHLY_CREDITS[newPlan];
+    quota.aiGenerationsLimit = PLAN_LIMITS[newPlan].aiGenerationsLimit;
+    quota.subscriptionStatus = 'active';
+
+    // Recalculate balance with new monthly allowance + existing topup
+    const topup = quota.topupCredits || 0;
+    quota.creditsBalance = quota.monthlyCredits + topup;
+    quota.creditsUsed = 0;
+    userQuotaCache.set(userId, quota);
+
+    // Sync admin users store
+    const userRec = adminUsersStore.get(userId);
+    if (userRec) {
+      userRec.plan = newPlan;
+      userRec.aiUsage.limit = quota.aiGenerationsLimit;
+      userRec.aiUsage.used = 0;
+    }
+
+    recordAuditLog(
+      'system',
+      'billing@mindflow.ai',
+      'PLAN_UPGRADE',
+      'user',
+      userId,
+      `Plan transitioned to ${newPlan.toUpperCase()}`,
+      { previousPlan: quota.plan, newPlan }
+    );
+
+    res.json({
+      success: true,
+      message: `Successfully upgraded to ${newPlan.toUpperCase()}`,
+      plan: newPlan,
+      creditsBalance: quota.creditsBalance,
+      entitlements: SERVER_PLAN_FEATURES[newPlan],
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || 'Failed to update plan' });
+  }
+});
+
+// Public / Client Entitlements & Features query
+app.get('/api/entitlements', (req: Request, res: Response) => {
+  const plan = ((req.query.plan as string) || 'pro') as 'free' | 'pro' | 'business';
+  res.json({
+    plan,
+    features: SERVER_PLAN_FEATURES[plan] || SERVER_PLAN_FEATURES.free,
+    costs: FEATURE_CREDIT_COSTS,
+    monthlyCredits: PLAN_MONTHLY_CREDITS[plan],
   });
 });
 
@@ -1549,9 +1941,10 @@ app.patch(
 // 6. AI & Usage Endpoints
 app.get('/api/admin/ai-usage', verifyAdminToken, (req: AuthenticatedAdminRequest, res: Response) => {
   const byModel: Record<string, number> = {
+    'gemini-3.8-flash': 0,
     'gemini-3.7-flash': 0,
-    'gemini-3.1-pro-preview': 0,
     'gemini-3.1-flash-lite': 0,
+    'gemini-3.1-pro-preview': 0,
   };
   const byFeature: Record<string, number> = {
     'generate-map': 0,

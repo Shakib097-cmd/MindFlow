@@ -23,6 +23,8 @@ import {
   orderBy,
   onSnapshot,
   serverTimestamp,
+  addDoc,
+  limit,
 } from 'firebase/firestore';
 import firebaseConfigData from '../../firebase-applet-config.json';
 
@@ -62,6 +64,8 @@ export {
   orderBy,
   onSnapshot,
   serverTimestamp,
+  addDoc,
+  limit,
 };
 
 export type { FirebaseUser };

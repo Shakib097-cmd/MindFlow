@@ -21,11 +21,14 @@ import { MultimodalModal } from './components/modals/MultimodalModal';
 import { AIAssistantDrawer } from './components/modals/AIAssistantDrawer';
 import { ExportShareModal } from './components/modals/ExportShareModal';
 import { PricingModal } from './components/modals/PricingModal';
+import { CreditTopUpModal } from './components/modals/CreditTopUpModal';
 import { VersionHistoryModal } from './components/modals/VersionHistoryModal';
 import { SettingsModal } from './components/modals/SettingsModal';
 import { QuickNotesModal } from './components/modals/QuickNotesModal';
 import { KeyboardShortcutsModal } from './components/modals/KeyboardShortcutsModal';
 import { CookieConsentBanner } from './components/legal/CookieConsentBanner';
+import { FeatureAccessDeniedView } from './components/views/FeatureAccessDeniedView';
+import { hasFeature } from './services/entitlementsService';
 import confetti from 'canvas-confetti';
 
 const MainLayout: React.FC = () => {
@@ -36,8 +39,9 @@ const MainLayout: React.FC = () => {
     celebrationTrigger,
     openLegal,
     userManualCategory,
+    usage,
   } = useWorkspace();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   // Fire confetti whenever celebration is triggered
   useEffect(() => {
@@ -149,6 +153,7 @@ const MainLayout: React.FC = () => {
       <AIAssistantDrawer />
       <ExportShareModal />
       <PricingModal />
+      <CreditTopUpModal />
       <VersionHistoryModal />
       <SettingsModal />
       <QuickNotesModal />

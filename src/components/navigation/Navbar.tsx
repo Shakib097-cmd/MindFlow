@@ -514,8 +514,15 @@ export const Navbar: React.FC = () => {
               <div className="border-t border-slate-100 pt-1">
                 <button
                   id="signout-btn"
-                  onClick={() => signOut()}
-                  className="w-full text-left px-4 py-1.5 text-xs hover:bg-red-50 text-red-600 flex items-center gap-2 font-medium"
+                  onClick={async () => {
+                    setShowUserMenu(false);
+                    await signOut();
+                    setCurrentView('landing');
+                    if (typeof window !== 'undefined') {
+                      window.history.pushState({}, '', '/');
+                    }
+                  }}
+                  className="w-full text-left px-4 py-1.5 text-xs hover:bg-red-50 text-red-600 flex items-center gap-2 font-medium cursor-pointer"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                   Sign Out

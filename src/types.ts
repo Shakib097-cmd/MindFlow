@@ -234,6 +234,36 @@ export interface UsageData {
   voiceMinutesLimit: number;
   periodStart: number;
   periodEnd: number;
+  // Entitlement & Dynamic Credit System additions
+  creditsBalance?: number;
+  monthlyCredits?: number;
+  creditsUsed?: number;
+  topupCredits?: number;
+  subscriptionStatus?: 'active' | 'trial' | 'trialing' | 'past_due' | 'cancelled' | 'expired';
+}
+
+export interface CreditTransaction {
+  id: string;
+  userId: string;
+  type: 'monthly_allocation' | 'ai_usage' | 'credit_topup' | 'manual_adjustment' | 'refund';
+  credits: number;
+  balanceBefore: number;
+  balanceAfter: number;
+  feature?: string;
+  paymentReference?: string;
+  amountUsd?: number;
+  description: string;
+  timestamp: number;
+}
+
+export interface CreditTopUpPackage {
+  id: string;
+  name: string;
+  credits: number;
+  priceUsd: number;
+  badge?: string;
+  popular?: boolean;
+  bestValue?: boolean;
 }
 
 export interface TemplateItem {

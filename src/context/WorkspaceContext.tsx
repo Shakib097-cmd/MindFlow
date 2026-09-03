@@ -62,6 +62,8 @@ import {
 import {
   subscribeToFirestoreUsage,
   incrementFirestoreUsage,
+  deductCreditsInFirestore,
+  topupCreditsInFirestore,
 } from '../services/usageFirestoreService';
 import confetti from 'canvas-confetti';
 
@@ -173,6 +175,10 @@ interface WorkspaceContextType {
   setIsExportShareOpen: (open: boolean) => void;
   isPricingOpen: boolean;
   setIsPricingOpen: (open: boolean) => void;
+  isCreditTopUpOpen: boolean;
+  setIsCreditTopUpOpen: (open: boolean) => void;
+  topUpCredits: (packageId: string) => Promise<{ success: boolean; newBalance: number; packageCredits: number }>;
+  consumeCredits: (cost: number, featureKey: string) => Promise<UsageData>;
   isVersionHistoryOpen: boolean;
   setIsVersionHistoryOpen: (open: boolean) => void;
   isSettingsOpen: boolean;
@@ -204,10 +210,10 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (match) {
       return { view: 'legal', legalDocId: match.id as LegalDocId, manualCategory: 'getting-started' };
     }
-    if (path === '/landing' || path === '/' || path === '') {
+    if (path === '/landing') {
       return { view: 'landing', legalDocId: 'privacy', manualCategory: 'getting-started' };
     }
-    if (path === '/dashboard' || path === '/app') {
+    if (path === '/' || path === '' || path === '/dashboard' || path === '/app') {
       return { view: 'dashboard', legalDocId: 'privacy', manualCategory: 'getting-started' };
     }
     if (path === '/editor' || path === '/canvas') {
@@ -234,7 +240,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (path === '/admin') {
       return { view: 'admin', legalDocId: 'privacy', manualCategory: 'getting-started' };
     }
-    return { view: 'landing', legalDocId: 'privacy', manualCategory: 'getting-started' };
+    return { view: 'dashboard', legalDocId: 'privacy', manualCategory: 'getting-started' };
   };
 
   const initialRoute = getInitialRouteMatch();
@@ -377,6 +383,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(false);
   const [isExportShareOpen, setIsExportShareOpen] = useState(false);
   const [isPricingOpen, setIsPricingOpen] = useState(false);
+  const [isCreditTopUpOpen, setIsCreditTopUpOpen] = useState(false);
   const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isQuickNotesOpen, setIsQuickNotesOpen] = useState(false);
@@ -713,6 +720,29 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const updated = await incrementFirestoreUsage(activeUserId, type, activePlan);
     setUsage(updated);
     return updated;
+  };
+
+  const consumeCredits = async (cost: number, featureKey: string): Promise<UsageData> => {
+    const updated = await deductCreditsInFirestore(activeUserId, cost, featureKey, activePlan);
+    setUsage(updated);
+    return updated;
+  };
+
+  const topUpCredits = async (
+    packageId: string
+  ): Promise<{ success: boolean; newBalance: number; packageCredits: number }> => {
+    try {
+      await fetch('/api/billing/topup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: activeUserId, packageId }),
+      });
+    } catch (e) {
+      console.warn('Backend top-up sync warning:', e);
+    }
+    const res = await topupCreditsInFirestore(activeUserId, packageId);
+    triggerCelebration();
+    return res;
   };
 
   // Check URL Hash and Path for admin and shared maps (#share-TOKEN, #admin, /admin)
@@ -2206,6 +2236,10 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setIsExportShareOpen,
         isPricingOpen,
         setIsPricingOpen,
+        isCreditTopUpOpen,
+        setIsCreditTopUpOpen,
+        topUpCredits,
+        consumeCredits,
         isVersionHistoryOpen,
         setIsVersionHistoryOpen,
         isSettingsOpen,

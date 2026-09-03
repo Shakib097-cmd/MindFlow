@@ -60,9 +60,10 @@ export const AdminAIUsageView: React.FC = () => {
   const avgDuration = metrics ? ((metrics as any).averageDurationMs ?? 240) : 240;
   const modelEntries = Object.entries(
     (metrics as any)?.modelBreakdown || metrics?.byModel || {
+      'gemini-3.8-flash': 0,
       'gemini-3.7-flash': 0,
-      'gemini-3.1-pro-preview': 0,
       'gemini-3.1-flash-lite': 0,
+      'gemini-3.1-pro-preview': 0,
     }
   );
   const featureEntries = Object.entries(

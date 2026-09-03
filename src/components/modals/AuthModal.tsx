@@ -303,8 +303,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 onClick={async () => {
                   await signOut();
                   onClose();
+                  setCurrentView('landing');
+                  if (typeof window !== 'undefined') {
+                    window.history.pushState({}, '', '/');
+                  }
                 }}
-                className="text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-1"
+                className="text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-1 cursor-pointer"
               >
                 <LogOut className="w-3 h-3" />
                 Sign Out

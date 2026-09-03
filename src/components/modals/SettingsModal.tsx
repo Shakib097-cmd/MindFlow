@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import { useAuth } from '../../context/AuthContext';
+import { useEntitlement } from '../../hooks/useEntitlement';
 import { AIUsageProgressBar } from '../common/AIUsageProgressBar';
 import {
   Settings,
@@ -17,6 +18,7 @@ import {
   AlertCircle,
   FileText,
   ExternalLink,
+  LogOut,
 } from 'lucide-react';
 
 export const SettingsModal: React.FC = () => {
@@ -24,14 +26,42 @@ export const SettingsModal: React.FC = () => {
     isSettingsOpen,
     setIsSettingsOpen,
     setIsPricingOpen,
+    setIsCreditTopUpOpen,
+    setCurrentView,
     usage,
     activeLayout,
     changeMapLayout,
     openLegal,
   } = useWorkspace();
-  const { profile, user } = useAuth();
+  const { profile, user, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState<'usage' | 'account' | 'preferences'>('usage');
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const {
+    creditsBalance,
+    monthlyCredits,
+    creditsUsed,
+    topupCredits,
+    isZeroCredits,
+  } = useEntitlement();
+
+  const effectivePlan = profile?.plan || 'pro';
+  const rawStatus = (profile as any)?.subscriptionStatus || (usage as any)?.subscriptionStatus || 'active';
+  const isSubscriptionActive = !['past_due', 'cancelled', 'expired'].includes(rawStatus);
+  const statusLabel = isSubscriptionActive ? 'Active' : rawStatus.replace('_', ' ');
+
+  // Format Renewal / Cycle Period End Date (e.g. 20 Sept 2026)
+  const renewalDateString = useMemo(() => {
+    const endTimestamp = usage?.periodEnd || Date.now() + 17 * 86400000;
+    return new Date(endTimestamp).toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+  }, [usage?.periodEnd]);
+
+  const totalMonthlyAllowance = Math.max(1, monthlyCredits);
+  const creditUsagePercent = Math.min(100, Math.max(0, Math.round((creditsBalance / totalMonthlyAllowance) * 100)));
 
   if (!isSettingsOpen) return null;
 
@@ -40,6 +70,15 @@ export const SettingsModal: React.FC = () => {
     setTimeout(() => {
       setIsRefreshing(false);
     }, 600);
+  };
+
+  const handleSignOut = async () => {
+    setIsSettingsOpen(false);
+    await signOut();
+    setCurrentView('landing');
+    if (typeof window !== 'undefined') {
+      window.history.pushState({}, '', '/');
+    }
   };
 
   return (
@@ -115,7 +154,103 @@ export const SettingsModal: React.FC = () => {
         <div className="p-6 overflow-y-auto flex-1 space-y-6">
           {/* TAB 1: AI USAGE & LIMITS */}
           {activeTab === 'usage' && (
-            <div className="space-y-6">
+            <div className="space-y-5">
+              {/* PRIMARY PRO PLAN & AI CREDITS BALANCE HERO STRIP (MATCHING SCREENSHOT) */}
+              <div
+                id="settings-plan-credits-hero"
+                className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-xs relative overflow-hidden"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 shadow-xs">
+                      <Crown className="w-5 h-5 text-indigo-600" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-bold text-slate-900 uppercase">
+                          {effectivePlan} Plan
+                        </h3>
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.2 rounded-full text-[10px] font-bold border ${
+                            isSubscriptionActive
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-rose-50 text-rose-700 border-rose-200'
+                          }`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              isSubscriptionActive ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
+                            }`}
+                          />
+                          {statusLabel}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">
+                        Renewal: {renewalDateString} • {effectivePlan === 'free' ? 'Starter Quota' : 'Pro Entitlements'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      id="settings-hero-topup-btn"
+                      onClick={() => {
+                        setIsSettingsOpen(false);
+                        setIsCreditTopUpOpen(true);
+                      }}
+                      className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1 cursor-pointer"
+                    >
+                      <Zap className="w-3.5 h-3.5 fill-white" />
+                      <span>Top Up</span>
+                    </button>
+                    <button
+                      id="settings-hero-manage-btn"
+                      onClick={() => {
+                        setIsSettingsOpen(false);
+                        setIsPricingOpen(true);
+                      }}
+                      className="px-3.5 py-1.5 border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded-xl transition-colors cursor-pointer"
+                    >
+                      Manage Plan
+                    </button>
+                  </div>
+                </div>
+
+                {/* AI Credits Bar */}
+                <div className="mt-4 bg-slate-50/90 rounded-xl p-3 border border-slate-200/80 space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-slate-800 flex items-center gap-1 text-[11px]">
+                      <Zap className="w-3 h-3 text-indigo-600 fill-indigo-600" />
+                      AI Credits Balance
+                    </span>
+                    <span className="font-black font-mono text-slate-900 text-xs">
+                      {creditsBalance} <span className="text-slate-400 font-normal">/ {monthlyCredits}</span>
+                    </span>
+                  </div>
+                  <div className="w-full h-2 bg-slate-200/80 rounded-full overflow-hidden">
+                    <div
+                      style={{ width: `${creditUsagePercent}%` }}
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        isZeroCredits
+                          ? 'bg-rose-500'
+                          : creditUsagePercent <= 15
+                          ? 'bg-amber-500'
+                          : 'bg-indigo-600'
+                      }`}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-slate-500">
+                    <span className="font-medium text-slate-600">{creditUsagePercent}% capacity available</span>
+                    <div className="flex items-center gap-2">
+                      <span>Used: {creditsUsed}</span>
+                      {topupCredits > 0 && <span className="text-indigo-600 font-bold">(+{topupCredits} top-up)</span>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Monthly AI Generation Limit Card */}
               <AIUsageProgressBar
                 variant="card"
                 showDetails={true}
@@ -208,7 +343,7 @@ export const SettingsModal: React.FC = () => {
                     {profile?.email || 'Registered User'}
                   </div>
                   <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                    User ID: {profile?.id || user?.uid || 'demo-user'}
+                    User ID: {profile?.id || user?.uid || 'user-local'}
                   </div>
                 </div>
                 <button
@@ -222,18 +357,56 @@ export const SettingsModal: React.FC = () => {
                 </button>
               </div>
 
+              {/* Plan & Credits Summary in Account Tab */}
               <div className="p-4 rounded-2xl border border-slate-200 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-700">Current Subscription</span>
-                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 uppercase tracking-wider">
-                    {profile?.plan || 'pro'} Plan
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-700">Current Subscription</span>
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 uppercase tracking-wider">
+                      {effectivePlan} Plan
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    {statusLabel}
                   </span>
+                </div>
+                <div className="text-xs text-slate-500">
+                  Renewal: {renewalDateString} • {effectivePlan === 'free' ? 'Starter Quota' : 'Pro Entitlements'}
+                </div>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 flex items-center justify-between">
+                  <div>
+                    <div className="text-[11px] font-bold text-slate-700">AI Credits Balance</div>
+                    <div className="text-sm font-black font-mono text-slate-900">
+                      {creditsBalance} / {monthlyCredits}{' '}
+                      {topupCredits > 0 && <span className="text-xs text-indigo-600 font-normal">(+{topupCredits} top-up)</span>}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setIsSettingsOpen(false);
+                      setIsCreditTopUpOpen(true);
+                    }}
+                    className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg cursor-pointer"
+                  >
+                    Top Up
+                  </button>
                 </div>
                 <p className="text-xs text-slate-500">
                   Includes {usage?.aiGenerationsLimit || 500} monthly AI generations, unlimited canvas
                   nodes, 6 auto-layout algorithms, and cloud persistence.
                 </p>
               </div>
+
+              {/* Sign Out Button in Account Tab */}
+              <button
+                id="settings-account-signout-btn"
+                onClick={handleSignOut}
+                className="w-full py-2.5 px-4 rounded-xl border border-rose-200 bg-rose-50/40 hover:bg-rose-50 text-rose-600 font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Sign Out of Account</span>
+              </button>
 
               <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-3">
                 <div className="flex items-center justify-between">

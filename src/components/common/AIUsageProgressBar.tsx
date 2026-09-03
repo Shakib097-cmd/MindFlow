@@ -28,7 +28,7 @@ export const AIUsageProgressBar: React.FC<AIUsageProgressBarProps> = ({
   onOpenUpgrade,
   onOpenSettings,
 }) => {
-  const { usage, setIsPricingOpen } = useWorkspace();
+  const { usage, setIsPricingOpen, setIsCreditTopUpOpen } = useWorkspace();
   const { profile } = useAuth();
   const [showPopover, setShowPopover] = useState(false);
 
@@ -36,6 +36,9 @@ export const AIUsageProgressBar: React.FC<AIUsageProgressBarProps> = ({
   const limit = usage?.aiGenerationsLimit ?? 50;
   const percentage = Math.min(100, Math.max(0, Math.round((used / Math.max(1, limit)) * 100)));
   const remaining = Math.max(0, limit - used);
+
+  const creditsBalance = usage?.creditsBalance ?? Math.max(0, (usage?.monthlyCredits ?? 100) - (usage?.creditsUsed ?? 0));
+  const isCreditsDepleted = creditsBalance <= 0;
 
   // Calculate days remaining in monthly cycle
   const now = Date.now();
@@ -194,12 +197,24 @@ export const AIUsageProgressBar: React.FC<AIUsageProgressBarProps> = ({
               {/* Action Buttons */}
               <div className="flex items-center gap-2">
                 <button
+                  id="popover-topup-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowPopover(false);
+                    setIsCreditTopUpOpen(true);
+                  }}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                >
+                  <Zap className="w-3.5 h-3.5 fill-white text-white" />
+                  <span>Top Up Credits</span>
+                </button>
+                <button
                   id="popover-upgrade-btn"
                   onClick={handleUpgradeClick}
                   className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
                 >
                   <Crown className="w-3.5 h-3.5 text-amber-300" />
-                  <span>Upgrade Limit</span>
+                  <span>Upgrade</span>
                 </button>
                 {onOpenSettings && (
                   <button
@@ -228,18 +243,32 @@ export const AIUsageProgressBar: React.FC<AIUsageProgressBarProps> = ({
           <div className="flex items-center gap-1.5">
             <Zap
               className={`w-3.5 h-3.5 ${
-                isCritical
+                isCreditsDepleted
                   ? 'text-rose-500 fill-rose-500'
                   : isWarning
                   ? 'text-amber-500 fill-amber-500'
                   : 'text-indigo-500 fill-indigo-500'
               }`}
             />
-            <span>Monthly AI Limit</span>
+            <span>AI Credits</span>
           </div>
-          <span className="text-[11px] font-mono text-slate-600">
-            {used}/{limit}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-bold font-mono text-slate-700">
+              {creditsBalance} <span className="text-[10px] font-normal text-slate-400">pts</span>
+            </span>
+            {isCreditsDepleted && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsCreditTopUpOpen(true);
+                }}
+                className="px-1.5 py-0.5 text-[9px] font-bold bg-rose-600 hover:bg-rose-700 text-white rounded cursor-pointer animate-pulse"
+              >
+                Top Up
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -251,8 +280,17 @@ export const AIUsageProgressBar: React.FC<AIUsageProgressBarProps> = ({
 
         {showDetails && (
           <div className="flex items-center justify-between text-[10px] text-slate-500">
-            <span>{remaining} generations left</span>
-            <span>Resets in {daysRemaining}d</span>
+            <span>{isCreditsDepleted ? '0 credits left' : `${creditsBalance} credits left`}</span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsCreditTopUpOpen(true);
+              }}
+              className="font-semibold text-indigo-600 hover:underline cursor-pointer"
+            >
+              + Top Up
+            </button>
           </div>
         )}
       </div>

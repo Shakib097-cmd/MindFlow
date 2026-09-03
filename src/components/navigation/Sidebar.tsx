@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { AIUsageProgressBar } from '../common/AIUsageProgressBar';
 import { useAuth } from '../../context/AuthContext';
+import { useEntitlement } from '../../hooks/useEntitlement';
 
 export const Sidebar: React.FC = () => {
   const { user, profile } = useAuth();

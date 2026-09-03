@@ -17,7 +17,10 @@ import {
   CheckCircle2,
   Loader2,
   Compass,
+  FileUp,
+  Workflow,
 } from 'lucide-react';
+import { DocumentIngestModal } from './DocumentIngestModal';
 
 export const MindMapCanvas: React.FC = () => {
   const {
@@ -77,6 +80,27 @@ export const MindMapCanvas: React.FC = () => {
   // Mini-map visible
   const [showMinimap, setShowMinimap] = useState(false);
   const [showLayoutMenu, setShowLayoutMenu] = useState(false);
+  const [layoutNotice, setLayoutNotice] = useState<string | null>(null);
+
+  // Auto-layout trigger handler
+  const handleAutoLayout = useCallback((targetLayout?: MapLayout) => {
+    // Default to 'tree' (hierarchical tree structure) or preferred layout
+    const layout = targetLayout || (activeLayout === 'left-to-right' ? 'left-to-right' : 'tree');
+    autoArrangeMap(layout);
+    setLayoutNotice('Hierarchical tree layout applied');
+    const timer = setTimeout(() => {
+      setLayoutNotice(null);
+    }, 2400);
+    return () => clearTimeout(timer);
+  }, [activeLayout, autoArrangeMap]);
+
+  // Drag and Drop File Ingestion
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const [dragHoverNodeId, setDragHoverNodeId] = useState<string | null>(null);
+  const [ingestFile, setIngestFile] = useState<File | null>(null);
+  const [isIngestModalOpen, setIsIngestModalOpen] = useState(false);
+  const dragCounterRef = useRef(0);
+  const canvasFileInputRef = useRef<HTMLInputElement>(null);
 
   // Keyboard Shortcuts
   useEffect(() => {
@@ -154,6 +178,12 @@ export const MindMapCanvas: React.FC = () => {
       } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'y') {
         e.preventDefault();
         redo();
+      } else if (
+        ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'l') ||
+        (e.altKey && e.key.toLowerCase() === 'l')
+      ) {
+        e.preventDefault();
+        handleAutoLayout();
       } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') {
         e.preventDefault();
         const searchInput = document.getElementById('canvas-search-input');
@@ -219,6 +249,7 @@ export const MindMapCanvas: React.FC = () => {
     redo,
     setZoom,
     setPan,
+    handleAutoLayout,
   ]);
 
   // Zoom with wheel
@@ -355,6 +386,72 @@ export const MindMapCanvas: React.FC = () => {
     setDraggingNodeId(nodeId);
   };
 
+  // Drag-and-Drop Document Ingest Handlers
+  const handleDragEnter = (e: React.DragEvent) => {
+    if (e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) {
+      e.preventDefault();
+      dragCounterRef.current += 1;
+      setIsDraggingFile(true);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    if (e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+
+      const targetEl = document.elementFromPoint(e.clientX, e.clientY);
+      const nodeEl = targetEl?.closest('[data-node-id]');
+      const foundNodeId = nodeEl ? nodeEl.getAttribute('data-node-id') : null;
+      if (foundNodeId !== dragHoverNodeId) {
+        setDragHoverNodeId(foundNodeId);
+      }
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    if (e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) {
+      e.preventDefault();
+      dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
+      if (dragCounterRef.current === 0) {
+        setIsDraggingFile(false);
+        setDragHoverNodeId(null);
+      }
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    if (e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounterRef.current = 0;
+      setIsDraggingFile(false);
+
+      const targetEl = document.elementFromPoint(e.clientX, e.clientY);
+      const nodeEl = targetEl?.closest('[data-node-id]');
+      const droppedNodeId = nodeEl ? nodeEl.getAttribute('data-node-id') : dragHoverNodeId;
+      setDragHoverNodeId(null);
+
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        const file = e.dataTransfer.files[0];
+        setIngestFile(file);
+        if (droppedNodeId) {
+          setSelectedNodeId(droppedNodeId);
+        }
+        setIsIngestModalOpen(true);
+      }
+    }
+  };
+
+  const handleManualFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setIngestFile(file);
+      setIsIngestModalOpen(true);
+    }
+    e.target.value = '';
+  };
+
   // Build Children Map for collapse & child count
   const childrenCountMap = new Map<string, number>();
   nodes.forEach((n) => {
@@ -381,7 +478,7 @@ export const MindMapCanvas: React.FC = () => {
     const dy = ty - sy;
 
     let pathD = '';
-    if (activeLayout === 'top-to-bottom' || activeLayout === 'bottom-to-top') {
+    if (activeLayout === 'top-to-bottom' || activeLayout === 'bottom-to-top' || activeLayout === 'tree') {
       const cy1 = sy + dy * 0.5;
       const cy2 = ty - dy * 0.5;
       pathD = `M ${sx} ${sy} C ${sx} ${cy1}, ${tx} ${cy2}, ${tx} ${ty}`;
@@ -430,6 +527,10 @@ export const MindMapCanvas: React.FC = () => {
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchEnd}
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
       {/* Top Floating Control Bar / Header */}
       <div className="absolute top-3 sm:top-6 left-3 sm:left-6 z-40 flex flex-col gap-1.5 max-w-[calc(100vw-130px)] sm:max-w-md pointer-events-none">
@@ -508,12 +609,24 @@ export const MindMapCanvas: React.FC = () => {
             )}
           </div>
 
-          {/* Auto Arrange */}
+          {/* Auto-layout */}
+          <button
+            id="auto-layout-btn"
+            onClick={() => handleAutoLayout()}
+            className="flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 shadow-xs hover:bg-slate-50 text-slate-700 hover:text-indigo-600 transition-all cursor-pointer active:scale-95"
+            title="Auto-layout: Clean hierarchical tree structure (Ctrl+Shift+L)"
+          >
+            <Workflow className="w-3.5 h-3.5 text-indigo-600" />
+            <span className="hidden sm:inline">Auto-layout</span>
+          </button>
+
+          {/* Quick Auto Arrange alias */}
           <button
             id="auto-arrange-btn"
-            onClick={autoArrangeMap}
-            className="p-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 hover:bg-slate-50 shadow-xs transition-colors cursor-pointer"
+            onClick={() => handleAutoLayout()}
+            className="p-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 hover:bg-slate-50 shadow-xs transition-colors cursor-pointer hidden"
             title="Auto Arrange Nodes"
+            aria-hidden="true"
           >
             <Layers className="w-3.5 h-3.5" />
           </button>
@@ -650,6 +763,16 @@ export const MindMapCanvas: React.FC = () => {
           <span className="hidden xs:inline">Fit to Screen</span>
         </button>
 
+        <button
+          id="canvas-auto-layout-btn"
+          onClick={() => handleAutoLayout()}
+          className="px-2.5 sm:px-4 py-1.5 sm:py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 hover:text-indigo-600 shadow-xs hover:bg-slate-50 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+          title="Auto-layout: Clean hierarchical tree structure (Ctrl+Shift+L)"
+        >
+          <Workflow className="w-3.5 h-3.5 text-indigo-600" />
+          <span>Auto-layout</span>
+        </button>
+
         <div className="flex items-center bg-white border border-slate-200 rounded-lg shadow-xs">
           <button
             id="zoom-out-btn"
@@ -682,6 +805,28 @@ export const MindMapCanvas: React.FC = () => {
           <span className="hidden sm:inline">Shortcuts</span>
           <kbd className="hidden md:inline font-mono text-[10px] bg-slate-100 text-slate-500 px-1 py-0.2 rounded border border-slate-200">?</kbd>
         </button>
+
+        {/* Import Document Button */}
+        <button
+          id="canvas-import-doc-btn"
+          onClick={() => {
+            setIngestFile(null);
+            setIsIngestModalOpen(true);
+          }}
+          className="px-2.5 sm:px-3 py-1.5 sm:py-2 bg-white border border-slate-200 rounded-lg text-slate-700 hover:text-indigo-600 shadow-xs hover:bg-slate-50 transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
+          title="Import Document (PDF, Markdown, Word, TXT, Code) - Or drag & drop directly onto canvas"
+        >
+          <FileUp className="w-3.5 h-3.5 text-indigo-600" />
+          <span className="hidden sm:inline">Import Doc</span>
+        </button>
+
+        <input
+          type="file"
+          ref={canvasFileInputRef}
+          onChange={handleManualFileSelect}
+          className="hidden"
+          accept=".pdf,.txt,.md,.markdown,.json,.csv,.tsv,.docx,.doc,.ts,.js,.py,.html,.css,image/*"
+        />
       </div>
 
       {/* Mini-map Widget (Bottom Right) */}
@@ -728,6 +873,70 @@ export const MindMapCanvas: React.FC = () => {
           </button>
         )}
       </div>
+
+      {/* Full Canvas Drag-and-Drop Ingestion Overlay */}
+      {isDraggingFile && (
+        <div
+          id="canvas-drag-drop-overlay"
+          className="absolute inset-0 z-50 pointer-events-none bg-indigo-950/25 backdrop-blur-xs flex items-center justify-center p-6 border-4 border-dashed border-indigo-500 rounded-2xl animate-in fade-in duration-150"
+        >
+          <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-indigo-200 p-8 max-w-md text-center">
+            <div className="w-14 h-14 rounded-2xl bg-indigo-600 text-white flex items-center justify-center mx-auto mb-3 shadow-lg animate-bounce">
+              <FileUp className="w-7 h-7" />
+            </div>
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 mb-1">
+              Drop Document to Ingest & Synthesize
+            </h3>
+            <p className="text-xs text-slate-600 mb-4 max-w-xs mx-auto">
+              {dragHoverNodeId ? (
+                <span className="text-indigo-600 font-semibold">
+                  Attaching branches to: "{nodes.find((n) => n.id === dragHoverNodeId)?.title || 'Selected Idea'}"
+                </span>
+              ) : (
+                'Extract key concepts, milestones, and strategic structure with Gemini 3.8 AI'
+              )}
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-1.5 text-[10px] sm:text-[11px] font-bold">
+              <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100">
+                PDF
+              </span>
+              <span className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-100">
+                Markdown (.md)
+              </span>
+              <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-100">
+                Word (.docx)
+              </span>
+              <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-100">
+                TXT & Code
+              </span>
+              <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-100">
+                JSON / CSV
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Document Ingestion & AI Synthesis Modal */}
+      <DocumentIngestModal
+        isOpen={isIngestModalOpen}
+        onClose={() => {
+          setIsIngestModalOpen(false);
+          setIngestFile(null);
+        }}
+        initialFile={ingestFile}
+        initialHoverNodeId={dragHoverNodeId}
+      />
+
+      {/* Auto-layout Toast Notification */}
+      {layoutNotice && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 pointer-events-none transition-all">
+          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900/90 backdrop-blur-md text-white text-xs font-medium shadow-lg border border-slate-800">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+            <span>{layoutNotice}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

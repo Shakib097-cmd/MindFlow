@@ -628,18 +628,33 @@ Return JSON format matching { "title": string, "description": string, "category"
   }
 });
 
-// 4. Document / PDF / OCR to Map with Gemini 3.7 native PDF multimodal support
+// 4. Document / PDF / OCR to Map with Gemini 3.8 native PDF multimodal support
 app.post('/api/ai/doc-to-map', checkAndDeductQuota, async (req: Request, res: Response) => {
   try {
-    const { content, documentName, documentType, pdfBase64 } = req.body;
+    const { content, documentName, documentType, pdfBase64, focus } = req.body;
 
-    // Native PDF Multimodal Processing
+    let focusInstruction = 'Extract the core executive summary, main chapters/sections, underlying concepts, key metrics, and actionable items.';
+    if (focus === 'tasks') {
+      focusInstruction = 'Focus primarily on actionable execution items, milestones, sprints, deliverables, and assigned tasks with priority ratings.';
+    } else if (focus === 'study') {
+      focusInstruction = 'Focus primarily on study concepts, key definitions, learning objectives, foundational principles, and revision questions.';
+    } else if (focus === 'strategy') {
+      focusInstruction = 'Focus primarily on strategic pillars, market opportunities, SWOT analysis, risks, and strategic initiatives.';
+    }
+
+    // Native PDF / Image Multimodal Processing
     if (pdfBase64) {
       const ai = getAIClient();
+      let mimeType = 'application/pdf';
+      if (pdfBase64.startsWith('data:image/')) {
+        mimeType = pdfBase64.substring(5, pdfBase64.indexOf(';'));
+      } else if (pdfBase64.startsWith('data:application/pdf')) {
+        mimeType = 'application/pdf';
+      }
       const cleanBase64 = pdfBase64.includes(',') ? pdfBase64.split(',')[1] : pdfBase64;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.7-flash',
+        model: 'gemini-3.8-flash',
         contents: [
           {
             role: 'user',
@@ -647,11 +662,11 @@ app.post('/api/ai/doc-to-map', checkAndDeductQuota, async (req: Request, res: Re
               {
                 inlineData: {
                   data: cleanBase64,
-                  mimeType: 'application/pdf',
+                  mimeType,
                 },
               },
               {
-                text: `Analyze this PDF document ("${documentName || 'Document.pdf'}"). Extract the core executive summary, main chapters/sections, underlying concepts, key metrics, and actionable items into a structured mind map hierarchy JSON.
+                text: `Analyze this document ("${documentName || 'Document'}"). ${focusInstruction} Synthesize into a structured mind map hierarchy JSON.
 Return JSON:
 {
   "title": "Document Title",
@@ -686,7 +701,8 @@ Return JSON:
       return res.status(400).json({ error: 'Document content or PDF data is required' });
     }
 
-    const systemInstruction = `You are MindFlow AI. You analyze full documents (PDFs, research papers, strategy docs, course syllabi, specs) and synthesize them into comprehensive, multi-tiered mind maps with executive summaries, core pillars, sub-branches, and action points.
+    const systemInstruction = `You are MindFlow AI. You analyze full documents (PDFs, research papers, strategy docs, course syllabi, specs, markdown, code) and synthesize them into comprehensive, multi-tiered mind maps with executive summaries, core pillars, sub-branches, and action points.
+${focusInstruction}
 Return JSON with { "title": string, "description": string, "category": string, "root": { "title": string, "children": [...] } }`;
 
     const rawJson = await callGemini(

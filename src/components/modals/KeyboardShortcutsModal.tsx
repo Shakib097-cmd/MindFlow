@@ -135,6 +135,15 @@ export const KeyboardShortcutsModal: React.FC = () => {
         context: 'When not editing text',
       },
       {
+        id: 'canvas-doc-drag-drop',
+        category: 'canvas',
+        section: 'Structure & Creation',
+        description: 'Drag & drop any document (PDF, Markdown, Word, TXT, Code, CSV) to synthesize mind map',
+        keys: ['Drop File'],
+        context: 'Directly onto canvas or node',
+        badge: 'Gemini AI',
+      },
+      {
         id: 'canvas-nav-left',
         category: 'canvas',
         section: 'Navigation & Selection',
@@ -218,6 +227,15 @@ export const KeyboardShortcutsModal: React.FC = () => {
         section: 'History & Viewport',
         description: 'Reset zoom to 100% and center view',
         keys: [modKey, '0'],
+      },
+      {
+        id: 'canvas-auto-layout',
+        category: 'canvas',
+        section: 'History & Viewport',
+        description: 'Auto-layout nodes in a clean hierarchical tree',
+        keys: [modKey, 'Shift', 'L'],
+        context: 'Or Alt + L',
+        badge: 'Smart Layout',
       },
       {
         id: 'canvas-pan',

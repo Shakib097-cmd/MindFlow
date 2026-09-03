@@ -86,12 +86,13 @@ export async function generateFromDoc(
   content: string,
   documentName?: string,
   documentType?: string,
-  pdfBase64?: string
+  pdfBase64?: string,
+  focus?: string
 ): Promise<GeneratedMapPayload> {
   const response = await fetch('/api/ai/doc-to-map', {
     method: 'POST',
     headers: getAuthHeaders(),
-    body: JSON.stringify({ content, documentName, documentType, pdfBase64 }),
+    body: JSON.stringify({ content, documentName, documentType, pdfBase64, focus }),
   });
 
   if (!response.ok) {
@@ -343,9 +344,10 @@ export async function convertVoiceToMap(transcript: string): Promise<GeneratedMa
 export async function convertDocumentToMap(
   content: string,
   documentName?: string,
-  pdfBase64?: string
+  pdfBase64?: string,
+  focus?: string
 ): Promise<GeneratedMapPayload> {
-  return generateFromDoc(content, documentName, 'text', pdfBase64);
+  return generateFromDoc(content, documentName, 'text', pdfBase64, focus);
 }
 
 export async function expandNodeWithAI(

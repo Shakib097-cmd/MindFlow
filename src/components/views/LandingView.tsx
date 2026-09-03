@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import { useAuth } from '../../context/AuthContext';
+import { TEMPLATES } from '../../data/templates';
 import { GlobalLegalFooter } from '../legal/GlobalLegalFooter';
 import { CookieConsentBanner } from '../legal/CookieConsentBanner';
 import {
@@ -39,6 +40,7 @@ import {
   FolderKanban,
   ExternalLink,
   ChevronDown,
+  Play,
 } from 'lucide-react';
 
 export const LandingView: React.FC = () => {
@@ -50,7 +52,7 @@ export const LandingView: React.FC = () => {
     openUserManual,
     setIsPricingOpen,
   } = useWorkspace();
-  const { signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth();
+  const { user, profile, signInWithGoogle, signInWithEmail, signUpWithEmail, loginAsGuest } = useAuth();
 
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showCookieModal, setShowCookieModal] = useState(false);
@@ -70,9 +72,13 @@ export const LandingView: React.FC = () => {
   // Interactive FAQ Open item
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
 
-  const handleStartTemplate = (_templateTitle: string) => {
-    setAuthMode('signup');
-    setShowAuthModal(true);
+  const handleStartTemplate = (templateTitle: string) => {
+    const match = TEMPLATES.find((t) => t.title.toLowerCase().includes(templateTitle.toLowerCase()));
+    if (match) {
+      createMapFromTemplate(match);
+      return;
+    }
+    setCurrentView('templates');
   };
 
   const handleEmailAuth = async (e: React.FormEvent) => {
@@ -212,26 +218,47 @@ export const LandingView: React.FC = () => {
 
           {/* Right Action CTAs */}
           <div className="hidden sm:flex items-center gap-3">
-            <button
-              onClick={() => {
-                setAuthMode('signin');
-                setShowAuthModal(true);
-              }}
-              className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
-            >
-              Log In
-            </button>
-            <button
-              id="nav-start-for-free-btn"
-              onClick={() => {
-                setAuthMode('signup');
-                setShowAuthModal(true);
-              }}
-              className="px-5 py-2.5 rounded-xl text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm hover:shadow-md hover:shadow-indigo-500/20 transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
-            >
-              <span>Start for Free</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
+            {user ? (
+              <button
+                id="nav-go-to-dashboard-btn"
+                onClick={() => setCurrentView('dashboard')}
+                className="px-5 py-2.5 rounded-xl text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm hover:shadow-md transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+              >
+                <span>Go to Dashboard</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            ) : (
+              <>
+                <button
+                  id="nav-open-demo-btn"
+                  onClick={() => setCurrentView('dashboard')}
+                  className="px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-700 hover:text-indigo-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  Live Demo
+                </button>
+                <button
+                  id="nav-login-btn"
+                  onClick={() => {
+                    setAuthMode('signin');
+                    setShowAuthModal(true);
+                  }}
+                  className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  Log In
+                </button>
+                <button
+                  id="nav-start-for-free-btn"
+                  onClick={() => {
+                    setAuthMode('signup');
+                    setShowAuthModal(true);
+                  }}
+                  className="px-5 py-2.5 rounded-xl text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm hover:shadow-md hover:shadow-indigo-500/20 transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+                >
+                  <span>Start for Free</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -276,27 +303,53 @@ export const LandingView: React.FC = () => {
               </button>
             </div>
             <div className="pt-2 border-t border-slate-100 flex flex-col gap-2">
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  setAuthMode('signin');
-                  setShowAuthModal(true);
-                }}
-                className="w-full py-2.5 rounded-xl text-sm font-semibold text-slate-700 bg-slate-100 text-center cursor-pointer"
-              >
-                Log In
-              </button>
-              <button
-                id="mobile-start-for-free-btn"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  setAuthMode('signup');
-                  setShowAuthModal(true);
-                }}
-                className="w-full py-2.5 rounded-xl text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white text-center shadow-xs cursor-pointer"
-              >
-                Start for Free
-              </button>
+              {user ? (
+                <button
+                  id="mobile-go-to-dashboard-btn"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setCurrentView('dashboard');
+                  }}
+                  className="w-full py-2.5 rounded-xl text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white text-center shadow-xs cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <span>Go to Dashboard</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              ) : (
+                <>
+                  <button
+                    id="mobile-demo-btn"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      setCurrentView('dashboard');
+                    }}
+                    className="w-full py-2.5 rounded-xl text-sm font-semibold text-slate-700 bg-slate-100 text-center cursor-pointer"
+                  >
+                    Open Live Demo
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      setAuthMode('signin');
+                      setShowAuthModal(true);
+                    }}
+                    className="w-full py-2.5 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-100 text-center cursor-pointer"
+                  >
+                    Log In
+                  </button>
+                  <button
+                    id="mobile-start-for-free-btn"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      setAuthMode('signup');
+                      setShowAuthModal(true);
+                    }}
+                    className="w-full py-2.5 rounded-xl text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white text-center shadow-xs cursor-pointer"
+                  >
+                    Start for Free
+                  </button>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -331,17 +384,39 @@ export const LandingView: React.FC = () => {
 
             {/* CTA Buttons */}
             <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3.5">
-              <button
-                id="hero-start-btn"
-                onClick={() => {
-                  setAuthMode('signup');
-                  setShowAuthModal(true);
-                }}
-                className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-base shadow-lg shadow-indigo-600/25 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2.5 cursor-pointer"
-              >
-                <span>Start Creating Free</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
+              {user ? (
+                <button
+                  id="hero-go-dashboard-btn"
+                  onClick={() => setCurrentView('dashboard')}
+                  className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-base shadow-lg shadow-indigo-600/25 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2.5 cursor-pointer"
+                >
+                  <span>Launch Workspace</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              ) : (
+                <>
+                  <button
+                    id="hero-start-btn"
+                    onClick={() => {
+                      setAuthMode('signup');
+                      setShowAuthModal(true);
+                    }}
+                    className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-base shadow-lg shadow-indigo-600/25 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2.5 cursor-pointer"
+                  >
+                    <span>Start Creating Free</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    id="hero-live-demo-btn"
+                    onClick={() => setCurrentView('dashboard')}
+                    className="w-full sm:w-auto px-7 py-4 rounded-2xl bg-white hover:bg-slate-50 text-slate-700 hover:text-indigo-600 font-bold text-base border border-slate-200 shadow-xs transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Play className="w-4 h-4 text-indigo-600 fill-indigo-600" />
+                    <span>Try Live Demo</span>
+                  </button>
+                </>
+              )}
             </div>
 
             {/* Feature Badges below CTAs */}
@@ -1352,6 +1427,21 @@ export const LandingView: React.FC = () => {
                   </button>
                 </>
               )}
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-slate-100 text-center">
+              <button
+                type="button"
+                id="auth-modal-guest-btn"
+                onClick={() => {
+                  loginAsGuest();
+                  setShowAuthModal(false);
+                  setCurrentView('dashboard');
+                }}
+                className="text-xs font-semibold text-slate-500 hover:text-indigo-600 transition-colors cursor-pointer"
+              >
+                Or explore live demo as guest →
+              </button>
             </div>
           </div>
         </div>

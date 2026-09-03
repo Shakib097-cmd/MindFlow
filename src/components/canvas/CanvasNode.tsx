@@ -50,16 +50,28 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
     setSelectedNodeId,
     editingNodeId,
     setEditingNodeId,
+    setIsSaving,
   } = useWorkspace();
 
   const isEditing = editingNodeId === node.id;
   const [editTitle, setEditTitle] = useState(node.title);
   const [showStyleMenu, setShowStyleMenu] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const typingDebounceTimer = useRef<any>(null);
 
   useEffect(() => {
-    setEditTitle(node.title);
-  }, [node.title]);
+    if (!isEditing) {
+      setEditTitle(node.title);
+    }
+  }, [node.title, isEditing]);
+
+  useEffect(() => {
+    return () => {
+      if (typingDebounceTimer.current) {
+        clearTimeout(typingDebounceTimer.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -68,7 +80,25 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
     }
   }, [isEditing]);
 
+  const handleTitleChange = (newVal: string) => {
+    setEditTitle(newVal);
+    if (newVal !== node.title) {
+      setIsSaving(true);
+      if (typingDebounceTimer.current) {
+        clearTimeout(typingDebounceTimer.current);
+      }
+      typingDebounceTimer.current = setTimeout(() => {
+        if (newVal.trim()) {
+          updateNode(node.id, { title: newVal.trim() });
+        }
+      }, 700);
+    }
+  };
+
   const handleTitleSubmit = () => {
+    if (typingDebounceTimer.current) {
+      clearTimeout(typingDebounceTimer.current);
+    }
     if (editTitle.trim()) {
       updateNode(node.id, { title: editTitle.trim() });
     } else {
@@ -142,6 +172,7 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
   return (
     <div
       id={`node-${node.id}`}
+      data-node-id={node.id}
       style={{
         transform: `translate(${node.x}px, ${node.y}px)`,
         minWidth: `${node.width}px`,
@@ -255,7 +286,7 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
                     ref={inputRef}
                     type="text"
                     value={editTitle}
-                    onChange={(e) => setEditTitle(e.target.value)}
+                    onChange={(e) => handleTitleChange(e.target.value)}
                     onBlur={handleTitleSubmit}
                     onKeyDown={handleKeyDown}
                     onClick={(e) => e.stopPropagation()}

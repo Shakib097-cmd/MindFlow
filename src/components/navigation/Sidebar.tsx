@@ -28,6 +28,7 @@ import {
   MessageSquare,
   User,
   Brain,
+  ExternalLink,
 } from 'lucide-react';
 import { AIUsageProgressBar } from '../common/AIUsageProgressBar';
 import { useAuth } from '../../context/AuthContext';
@@ -392,6 +393,18 @@ export const Sidebar: React.FC = () => {
               >
                 <MessageSquare className="w-3 h-3 text-indigo-500" />
                 <span>Contact Support</span>
+              </button>
+
+              {/* Website Home / Landing Page */}
+              <button
+                id="sidebar-landing-home"
+                onClick={() => {
+                  handleNavigate('landing');
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer pl-6"
+              >
+                <ExternalLink className="w-3 h-3 text-indigo-600" />
+                <span>Website Home</span>
               </button>
             </div>
           )}

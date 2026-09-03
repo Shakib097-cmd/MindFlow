@@ -37,7 +37,7 @@ import {
   updateStoredQuickNote,
   deleteStoredQuickNote,
 } from '../lib/storage';
-import { applyLayout, parseHierarchyToCanvas } from '../lib/layoutEngine';
+import { applyLayout, parseHierarchyToCanvas, parseHierarchyAsBranch } from '../lib/layoutEngine';
 import { useAuth } from './AuthContext';
 import {
   saveMapToCloud,
@@ -100,6 +100,7 @@ interface WorkspaceContextType {
   pan: { x: number; y: number };
   activeLayout: MapLayout;
   isSaving: boolean;
+  setIsSaving: (saving: boolean) => void;
   isSyncing: boolean;
   lastSyncedAt: number | null;
   syncError: string | null;
@@ -124,6 +125,7 @@ interface WorkspaceContextType {
   openMap: (mapId: string) => void;
   createNewMap: (title?: string, layout?: MapLayout) => MindMap;
   createMapFromHierarchy: (payload: any, layout?: MapLayout) => MindMap;
+  appendHierarchyToNode: (targetParentId: string, payload: any) => MindNode[];
   createMapFromTemplate: (template: TemplateItem) => MindMap;
   updateMapMetadata: (updates: Partial<MindMap>) => void;
   deleteMap: (mapId: string) => void;
@@ -183,7 +185,7 @@ interface WorkspaceContextType {
   setIsMobileMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
   recordUsage: (type: 'ai' | 'map' | 'export' | 'voice') => Promise<UsageData>;
   fitToScreen: () => void;
-  autoArrangeMap: () => void;
+  autoArrangeMap: (layout?: MapLayout) => void;
   triggerCelebration: () => void;
 }
 
@@ -202,8 +204,11 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (match) {
       return { view: 'legal', legalDocId: match.id as LegalDocId, manualCategory: 'getting-started' };
     }
-    if (path === '/landing') {
+    if (path === '/landing' || path === '/' || path === '') {
       return { view: 'landing', legalDocId: 'privacy', manualCategory: 'getting-started' };
+    }
+    if (path === '/dashboard' || path === '/app') {
+      return { view: 'dashboard', legalDocId: 'privacy', manualCategory: 'getting-started' };
     }
     if (path === '/editor' || path === '/canvas') {
       return { view: 'editor', legalDocId: 'privacy', manualCategory: 'getting-started' };
@@ -211,22 +216,53 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (path === '/tasks') {
       return { view: 'tasks', legalDocId: 'privacy', manualCategory: 'getting-started' };
     }
+    if (path === '/goals') {
+      return { view: 'goals', legalDocId: 'privacy', manualCategory: 'getting-started' };
+    }
     if (path === '/templates') {
       return { view: 'templates', legalDocId: 'privacy', manualCategory: 'getting-started' };
     }
     if (path === '/my-maps' || path === '/maps') {
       return { view: 'my_maps', legalDocId: 'privacy', manualCategory: 'getting-started' };
     }
+    if (path === '/study' || path === '/study_mode') {
+      return { view: 'study_mode', legalDocId: 'privacy', manualCategory: 'getting-started' };
+    }
+    if (path === '/presentation') {
+      return { view: 'presentation', legalDocId: 'privacy', manualCategory: 'getting-started' };
+    }
     if (path === '/admin') {
       return { view: 'admin', legalDocId: 'privacy', manualCategory: 'getting-started' };
     }
-    return { view: 'dashboard', legalDocId: 'privacy', manualCategory: 'getting-started' };
+    return { view: 'landing', legalDocId: 'privacy', manualCategory: 'getting-started' };
   };
 
   const initialRoute = getInitialRouteMatch();
-  const [currentView, setCurrentView] = useState<WorkspaceView>(initialRoute.view);
+  const [currentView, setCurrentViewInternal] = useState<WorkspaceView>(initialRoute.view);
   const [legalDocId, setLegalDocId] = useState<LegalDocId>(initialRoute.legalDocId);
   const [userManualCategory, setUserManualCategory] = useState<string>(initialRoute.manualCategory);
+
+  const setCurrentView = useCallback((newView: WorkspaceView, skipPushState = false) => {
+    setCurrentViewInternal(newView);
+    if (!skipPushState && typeof window !== 'undefined') {
+      const viewToRoute: Partial<Record<WorkspaceView, string>> = {
+        landing: '/',
+        dashboard: '/dashboard',
+        editor: '/editor',
+        my_maps: '/my-maps',
+        tasks: '/tasks',
+        goals: '/goals',
+        templates: '/templates',
+        study_mode: '/study',
+        presentation: '/presentation',
+        admin: '/admin',
+      };
+      const targetPath = viewToRoute[newView];
+      if (targetPath && window.location.pathname !== targetPath) {
+        window.history.pushState({}, '', targetPath);
+      }
+    }
+  }, []);
 
   // Listen to popstate for legal, manual and standard routes
   useEffect(() => {
@@ -235,14 +271,56 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (path.startsWith('/help/user-manual') || path.startsWith('/user-manual')) {
         const hash = window.location.hash.replace('#', '');
         setUserManualCategory(hash || 'getting-started');
-        setCurrentView('user_manual');
+        setCurrentViewInternal('user_manual');
         return;
       }
       const match = ALL_LEGAL_LINKS.find((l) => l.route === path);
       if (match) {
         setLegalDocId(match.id as LegalDocId);
-        setCurrentView('legal');
+        setCurrentViewInternal('legal');
+        return;
       }
+      if (path === '/' || path === '/landing' || path === '') {
+        setCurrentViewInternal('landing');
+        return;
+      }
+      if (path === '/dashboard' || path === '/app') {
+        setCurrentViewInternal('dashboard');
+        return;
+      }
+      if (path === '/editor' || path === '/canvas') {
+        setCurrentViewInternal('editor');
+        return;
+      }
+      if (path === '/tasks') {
+        setCurrentViewInternal('tasks');
+        return;
+      }
+      if (path === '/goals') {
+        setCurrentViewInternal('goals');
+        return;
+      }
+      if (path === '/templates') {
+        setCurrentViewInternal('templates');
+        return;
+      }
+      if (path === '/my-maps' || path === '/maps') {
+        setCurrentViewInternal('my_maps');
+        return;
+      }
+      if (path === '/study' || path === '/study_mode') {
+        setCurrentViewInternal('study_mode');
+        return;
+      }
+      if (path === '/presentation') {
+        setCurrentViewInternal('presentation');
+        return;
+      }
+      if (path === '/admin') {
+        setCurrentViewInternal('admin');
+        return;
+      }
+      setCurrentViewInternal('landing');
     };
     window.addEventListener('popstate', handlePop);
     return () => window.removeEventListener('popstate', handlePop);
@@ -715,12 +793,18 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           setSyncError(err?.message || 'Failed to save map changes to cloud');
         } finally {
           setIsSyncing(false);
+          setTimeout(() => {
+            setIsSaving(false);
+          }, 350);
         }
       }, 600);
 
+      // Local storage persists instantly, keep saving indicator visible for smooth UI transition
       setTimeout(() => {
         setIsSaving(false);
-      }, 300);
+        setSyncStatus('saved');
+        setLastSyncedAt(Date.now());
+      }, 750);
     },
     [activeMap, allMaps, activeUserId]
   );
@@ -1014,6 +1098,54 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return newMap;
   };
 
+  const appendHierarchyToNode = (targetParentId: string, payload: any): MindNode[] => {
+    if (!activeMap || nodes.length === 0) {
+      createMapFromHierarchy(payload);
+      return [];
+    }
+
+    const rawRoot = payload.root || payload;
+    const parentNode =
+      nodes.find((n) => n.id === targetParentId) ||
+      nodes.find((n) => !n.parentId) ||
+      nodes[0];
+
+    if (!parentNode) {
+      createMapFromHierarchy(payload);
+      return [];
+    }
+
+    const existingBranches = nodes.filter((n) => n.parentId === parentNode.id).length;
+    const { nodes: branchNodes, edges: branchEdges, branchRootId } = parseHierarchyAsBranch(
+      rawRoot,
+      activeMap.id,
+      parentNode.id,
+      existingBranches
+    );
+
+    const combinedNodes = [...nodes, ...branchNodes];
+    const combinedEdges = [...edges, ...branchEdges];
+
+    const arrangedNodes = applyLayout(
+      combinedNodes,
+      combinedEdges,
+      activeMap.layout || 'left-to-right',
+      activeMap.rootNodeId
+    );
+
+    setNodes(arrangedNodes);
+    setEdges(combinedEdges);
+    setSelectedNodeId(branchRootId);
+    setSelectedNodeIds([branchRootId]);
+    persistCanvasState(arrangedNodes, combinedEdges);
+    pushHistory(arrangedNodes, combinedEdges);
+    recordUsage('ai');
+    recordUsage('map');
+    triggerCelebration();
+
+    return arrangedNodes;
+  };
+
   const createMapFromTemplate = (template: TemplateItem): MindMap => {
     const newMapId = 'map-' + Math.random().toString(36).substr(2, 9);
     const now = Date.now();
@@ -1195,9 +1327,14 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  const autoArrangeMap = () => {
+  const autoArrangeMap = (layout?: MapLayout) => {
     if (activeMap) {
-      const arranged = applyLayout(nodes, edges, activeLayout, activeMap.rootNodeId);
+      const targetLayout = layout || activeLayout || 'tree';
+      if (layout && layout !== activeLayout) {
+        setActiveLayout(layout);
+        updateMapMetadata({ layout });
+      }
+      const arranged = applyLayout(nodes, edges, targetLayout, activeMap.rootNodeId);
       setNodes(arranged);
       persistCanvasState(arranged, edges);
       pushHistory(arranged, edges);
@@ -1332,6 +1469,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Debounced node position updating to prevent write thrashing during mouse drag
   const updateNodePosition = (nodeId: string, x: number, y: number) => {
+    setIsSaving(true);
+    setSyncStatus('saving');
     setNodes((prev) => {
       const next = prev.map((n) => (n.id === nodeId ? { ...n, x, y, updatedAt: Date.now() } : n));
       if (nodePositionDebounceTimer.current) {
@@ -1994,6 +2133,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         pan,
         activeLayout,
         isSaving,
+        setIsSaving,
         isSyncing,
         lastSyncedAt,
         syncError,
@@ -2018,6 +2158,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         openMap,
         createNewMap,
         createMapFromHierarchy,
+        appendHierarchyToNode,
         createMapFromTemplate,
         updateMapMetadata,
         deleteMap,

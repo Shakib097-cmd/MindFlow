@@ -101,7 +101,7 @@ export const Navbar: React.FC = () => {
         <button
           id="brand-logo-btn"
           onClick={() => setCurrentView('landing')}
-          className="flex items-center gap-2 text-left group cursor-pointer"
+          className="flex items-center gap-2 text-left group cursor-pointer shrink-0"
         >
           <div className="w-7 h-7 sm:w-8 sm:h-8 bg-indigo-600 rounded-lg flex items-center justify-center shadow-xs text-white group-hover:bg-indigo-700 transition-colors">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -114,6 +114,35 @@ export const Navbar: React.FC = () => {
             MindFlow
           </span>
         </button>
+
+        {/* Small Status Indicator in Navbar: Shows 'Saved' or 'Saving...' whenever changes are detected in MindMapCanvas */}
+        <div
+          id="navbar-save-status-indicator"
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold select-none transition-all duration-200 shrink-0 ${
+            isSaving || isSyncing || syncStatus === 'saving' || syncStatus === 'syncing'
+              ? 'bg-amber-50 text-amber-800 border border-amber-200/90 shadow-2xs'
+              : 'bg-emerald-50 text-emerald-800 border border-emerald-200/90'
+          }`}
+          title={
+            isSaving || isSyncing || syncStatus === 'saving' || syncStatus === 'syncing'
+              ? 'Saving changes detected in MindMapCanvas...'
+              : lastSyncedAt
+              ? `All changes saved (${new Date(lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`
+              : 'All changes saved'
+          }
+        >
+          {isSaving || isSyncing || syncStatus === 'saving' || syncStatus === 'syncing' ? (
+            <>
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600 shrink-0" />
+              <span className="tracking-tight font-medium">Saving...</span>
+            </>
+          ) : (
+            <>
+              <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5] shrink-0" />
+              <span className="tracking-tight font-medium">Saved</span>
+            </>
+          )}
+        </div>
 
         {/* Top Nav Links (Visible on desktop & large tablets) */}
         <div className="hidden lg:flex items-center gap-5 text-sm font-medium text-slate-500">
@@ -204,18 +233,18 @@ export const Navbar: React.FC = () => {
           ) : syncStatus === 'error' ? (
             <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
           ) : (
-            <Cloud className="w-3.5 h-3.5 text-emerald-600" />
+            <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
           )}
           <span className="hidden md:inline">
-            {isSaving
+            {isSaving || syncStatus === 'saving'
               ? 'Saving...'
               : syncStatus === 'syncing' || isSyncing
-              ? 'Syncing...'
-              : syncStatus === 'synced'
-              ? 'Synced'
+              ? 'Saving...'
+              : syncStatus === 'synced' || syncStatus === 'saved'
+              ? 'Saved'
               : syncStatus === 'offline'
               ? 'Offline'
-              : 'Sync'}
+              : 'Saved'}
           </span>
         </button>
 

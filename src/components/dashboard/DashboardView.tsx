@@ -59,9 +59,10 @@ export const DashboardView: React.FC = () => {
 
   const categories = ['All', 'Favorites', 'Strategy', 'Business', 'Study', 'Engineering', 'Marketing'];
 
-  // Filter & Sort Maps
+  // Filter & Sort Maps (Strictly Personal Content)
   const filteredAndSortedMaps = useMemo(() => {
     return allMaps
+      .filter((m) => !m.isTrash && m.id !== 'map-mindflow-demo' && m.ownerId !== 'demo-user')
       .filter((m) => {
         // Category Filter
         if (selectedCategory === 'Favorites' && !m.isFavorite) return false;
@@ -90,15 +91,33 @@ export const DashboardView: React.FC = () => {
       });
   }, [allMaps, selectedCategory, searchQuery, sortBy]);
 
-  const completedTasks = allTasks.filter((t) => t.status === 'done').length;
-  const totalTasks = allTasks.length;
+  const personalTasks = useMemo(
+    () =>
+      allTasks.filter(
+        (t) =>
+          t.mapId !== 'map-mindflow-demo' &&
+          !['task-1', 'task-2', 'task-3'].includes(t.id)
+      ),
+    [allTasks]
+  );
+  const completedTasks = personalTasks.filter((t) => t.status === 'done').length;
+  const totalTasks = personalTasks.length;
   const taskProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-  // Most recently updated map for the "Continue Workspace" hero
+  const personalMaps = useMemo(
+    () => allMaps.filter((m) => !m.isTrash && m.id !== 'map-mindflow-demo' && m.ownerId !== 'demo-user'),
+    [allMaps]
+  );
+  const personalGoals = useMemo(
+    () => allGoals.filter((g) => g.mapId !== 'map-mindflow-demo' && g.id !== 'goal-1'),
+    [allGoals]
+  );
+
+  // Most recently updated personal map for the "Continue Workspace" hero
   const mostRecentMap = useMemo(() => {
-    if (allMaps.length === 0) return null;
-    return [...allMaps].sort((a, b) => b.updatedAt - a.updatedAt)[0];
-  }, [allMaps]);
+    if (personalMaps.length === 0) return null;
+    return [...personalMaps].sort((a, b) => b.updatedAt - a.updatedAt)[0];
+  }, [personalMaps]);
 
   const unreadQuickNotesCount = quickNotes.filter((n) => !n.convertedToNode).length;
 
@@ -339,9 +358,9 @@ export const DashboardView: React.FC = () => {
             <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
               Total Mind Maps
             </span>
-            <div className="text-2xl font-black text-slate-900 mt-1">{allMaps.length}</div>
+            <div className="text-2xl font-black text-slate-900 mt-1">{personalMaps.length}</div>
             <span className="text-[11px] text-indigo-600 font-medium">
-              In your cloud workspace
+              In your personal workspace
             </span>
           </div>
           <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
@@ -379,7 +398,7 @@ export const DashboardView: React.FC = () => {
             <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
               Strategic Goals
             </span>
-            <div className="text-2xl font-black text-slate-900 mt-1">{allGoals.length}</div>
+            <div className="text-2xl font-black text-slate-900 mt-1">{personalGoals.length}</div>
             <span className="text-[11px] text-rose-600 font-medium">Milestones & OKRs</span>
           </div>
           <div className="w-11 h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold">

@@ -16,6 +16,10 @@ import {
 export const GoalsView: React.FC = () => {
   const { allGoals, allMaps, addGoal, updateGoal, deleteGoal, triggerCelebration } = useWorkspace();
 
+  const personalGoals = allGoals.filter(
+    (g) => g && g.mapId !== 'map-mindflow-demo' && g.id !== 'goal-1'
+  );
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
@@ -108,7 +112,7 @@ export const GoalsView: React.FC = () => {
       </div>
 
       {/* Goals Grid */}
-      {allGoals.length === 0 ? (
+      {personalGoals.length === 0 ? (
         <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-16 text-center">
           <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-3">
             <Target className="w-6 h-6" />
@@ -126,7 +130,7 @@ export const GoalsView: React.FC = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {allGoals.map((goal) => (
+          {personalGoals.map((goal) => (
             <div
               key={goal.id}
               className={`bg-white rounded-2xl p-6 border shadow-xs hover:shadow-md transition-all flex flex-col justify-between ${

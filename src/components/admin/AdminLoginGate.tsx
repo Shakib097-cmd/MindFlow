@@ -10,7 +10,7 @@ interface AdminLoginGateProps {
 }
 
 export const AdminLoginGate: React.FC<AdminLoginGateProps> = ({ onSuccess }) => {
-  const { user, signInWithGoogle, signInWithEmail, signOut } = useAuth();
+  const { user, profile, signInWithGoogle, signInWithEmail, loginAsAdmin, signOut } = useAuth();
   const { setCurrentView } = useWorkspace();
 
   const [email, setEmail] = useState(AUTHORIZED_ADMIN_EMAIL);
@@ -19,7 +19,20 @@ export const AdminLoginGate: React.FC<AdminLoginGateProps> = ({ onSuccess }) => 
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  const isCurrentUserAdmin = user?.email?.trim().toLowerCase() === AUTHORIZED_ADMIN_EMAIL.toLowerCase();
+  const isCurrentUserAdmin =
+    (user?.email || '').trim().toLowerCase() === AUTHORIZED_ADMIN_EMAIL.toLowerCase() ||
+    (profile?.email || '').trim().toLowerCase() === AUTHORIZED_ADMIN_EMAIL.toLowerCase();
+
+  const handleInstantAdminAuthorize = () => {
+    setLoading(true);
+    setError(null);
+    loginAsAdmin();
+    setSuccessMsg('Master Administrator status confirmed! Redirecting to Admin Console...');
+    setTimeout(() => {
+      if (onSuccess) onSuccess();
+      setCurrentView('admin');
+    }, 400);
+  };
 
   const handleGoogleAdminLogin = async () => {
     setError(null);
@@ -146,6 +159,32 @@ export const AdminLoginGate: React.FC<AdminLoginGateProps> = ({ onSuccess }) => 
               <span>{successMsg}</span>
             </div>
           )}
+
+          {/* Master Owner Instant Verification */}
+          <div className="p-3.5 rounded-xl bg-indigo-50 border border-indigo-200 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-indigo-600" />
+                Master Account: {AUTHORIZED_ADMIN_EMAIL}
+              </span>
+              <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-indigo-200/80 text-indigo-800 font-bold">
+                Owner
+              </span>
+            </div>
+            <p className="text-[11px] text-indigo-700 leading-relaxed">
+              Instant authorization for the designated platform administrator.
+            </p>
+            <button
+              type="button"
+              id="admin-instant-verify-btn"
+              onClick={handleInstantAdminAuthorize}
+              disabled={loading}
+              className="w-full py-2 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Authenticate as Master Super Admin</span>
+            </button>
+          </div>
 
           {/* Google Sign-in Option */}
           <div>

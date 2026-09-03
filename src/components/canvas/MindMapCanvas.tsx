@@ -55,6 +55,10 @@ export const MindMapCanvas: React.FC = () => {
     addNodeChild,
     addNodeSibling,
     deleteNode,
+    duplicateNode,
+    toggleNodeCollapse,
+    convertNodeToTask,
+    setIsKeyboardShortcutsOpen,
     setIsAIGeneratorOpen,
     setIsMultimodalOpen,
     setIsAIAssistantOpen,
@@ -73,22 +77,46 @@ export const MindMapCanvas: React.FC = () => {
   // Mini-map visible
   const [showMinimap, setShowMinimap] = useState(false);
   const [showLayoutMenu, setShowLayoutMenu] = useState(false);
-  const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
 
   // Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ignore if typing in an input or textarea
+      const activeEl = document.activeElement;
       if (
-        document.activeElement?.tagName === 'INPUT' ||
-        document.activeElement?.tagName === 'TEXTAREA'
+        activeEl?.tagName === 'INPUT' ||
+        activeEl?.tagName === 'TEXTAREA' ||
+        (activeEl as HTMLElement)?.isContentEditable
       ) {
         return;
       }
 
-      if (e.key === 'F2' && selectedNodeId) {
+      // Quick zoom controls
+      if ((e.metaKey || e.ctrlKey) && e.key === '0') {
         e.preventDefault();
-        setEditingNodeId(selectedNodeId);
+        setZoom(1);
+        setPan({ x: 0, y: 0 });
+        return;
+      }
+      if (e.key === '+' || e.key === '=') {
+        e.preventDefault();
+        setZoom((z) => Math.min(z + 0.15, 3));
+        return;
+      }
+      if (e.key === '-' || e.key === '_') {
+        e.preventDefault();
+        setZoom((z) => Math.max(z - 0.15, 0.25));
+        return;
+      }
+
+      // If no node selected, default to active root node or first node for seamless keyboard interaction
+      const effectiveNodeId = selectedNodeId || (nodes.length > 0 ? (activeMap?.rootNodeId || nodes[0]?.id) : null);
+
+      // Node Actions
+      if (e.key === 'F2' && effectiveNodeId) {
+        e.preventDefault();
+        if (!selectedNodeId) setSelectedNodeId(effectiveNodeId);
+        setEditingNodeId(effectiveNodeId);
       } else if (e.key === 'Escape') {
         if (editingNodeId) {
           e.preventDefault();
@@ -96,15 +124,26 @@ export const MindMapCanvas: React.FC = () => {
         } else if (selectedNodeId) {
           setSelectedNodeId(null);
         }
-      } else if (e.key === 'Tab' && selectedNodeId) {
+      } else if (e.key === 'Tab' && effectiveNodeId && !editingNodeId) {
         e.preventDefault();
-        addNodeChild(selectedNodeId);
-      } else if (e.key === 'Enter' && selectedNodeId) {
+        if (!selectedNodeId) setSelectedNodeId(effectiveNodeId);
+        addNodeChild(effectiveNodeId);
+      } else if (e.key === 'Enter' && effectiveNodeId && !editingNodeId) {
         e.preventDefault();
-        addNodeSibling(selectedNodeId);
-      } else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedNodeId) {
+        if (!selectedNodeId) setSelectedNodeId(effectiveNodeId);
+        addNodeSibling(effectiveNodeId);
+      } else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedNodeId && !editingNodeId) {
         e.preventDefault();
         deleteNode(selectedNodeId);
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'd' && effectiveNodeId && !editingNodeId) {
+        e.preventDefault();
+        duplicateNode(effectiveNodeId);
+      } else if (e.key === ' ' && effectiveNodeId && !editingNodeId) {
+        e.preventDefault();
+        toggleNodeCollapse(effectiveNodeId);
+      } else if ((e.key === 't' || e.key === 'T') && effectiveNodeId && !editingNodeId && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        convertNodeToTask(effectiveNodeId);
       } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault();
         if (e.shiftKey) {
@@ -119,12 +158,68 @@ export const MindMapCanvas: React.FC = () => {
         e.preventDefault();
         const searchInput = document.getElementById('canvas-search-input');
         searchInput?.focus();
+      } else if (!editingNodeId) {
+        // Arrow Keys Tree Navigation
+        if (!selectedNodeId && effectiveNodeId) {
+          if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+            e.preventDefault();
+            setSelectedNodeId(effectiveNodeId);
+            return;
+          }
+        }
+        if (selectedNodeId) {
+          const currNode = nodes.find((n) => n.id === selectedNodeId);
+          if (currNode) {
+            if (e.key === 'ArrowLeft') {
+              e.preventDefault();
+              if (currNode.parentId) {
+                setSelectedNodeId(currNode.parentId);
+              }
+            } else if (e.key === 'ArrowRight') {
+              e.preventDefault();
+              const childNodes = nodes.filter((n) => n.parentId === selectedNodeId);
+              if (childNodes.length > 0) {
+                setSelectedNodeId(childNodes[0].id);
+              }
+            } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+              e.preventDefault();
+              const siblings = currNode.parentId
+                ? nodes.filter((n) => n.parentId === currNode.parentId)
+                : nodes.filter((n) => !n.parentId);
+              const currIdx = siblings.findIndex((n) => n.id === currNode.id);
+              if (currIdx !== -1) {
+                if (e.key === 'ArrowDown' && currIdx < siblings.length - 1) {
+                  setSelectedNodeId(siblings[currIdx + 1].id);
+                } else if (e.key === 'ArrowUp' && currIdx > 0) {
+                  setSelectedNodeId(siblings[currIdx - 1].id);
+                }
+              }
+            }
+          }
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedNodeId, editingNodeId, setEditingNodeId, setSelectedNodeId, addNodeChild, addNodeSibling, deleteNode, undo, redo]);
+  }, [
+    selectedNodeId,
+    editingNodeId,
+    nodes,
+    setEditingNodeId,
+    setSelectedNodeId,
+    addNodeChild,
+    addNodeSibling,
+    deleteNode,
+    duplicateNode,
+    toggleNodeCollapse,
+    convertNodeToTask,
+    setIsKeyboardShortcutsOpen,
+    undo,
+    redo,
+    setZoom,
+    setPan,
+  ]);
 
   // Zoom with wheel
   const handleWheel = (e: React.WheelEvent) => {
@@ -579,46 +674,15 @@ export const MindMapCanvas: React.FC = () => {
 
         <button
           id="help-shortcuts-btn"
-          onClick={() => setShowKeyboardHelp(!showKeyboardHelp)}
-          className="p-1.5 sm:p-2 bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-slate-800 shadow-xs hover:bg-slate-50 transition-colors cursor-pointer hidden sm:flex"
-          title="Keyboard Shortcuts"
+          onClick={() => setIsKeyboardShortcutsOpen(true)}
+          className="px-2.5 sm:px-3 py-1.5 sm:py-2 bg-white border border-slate-200 rounded-lg text-slate-600 hover:text-indigo-600 shadow-xs hover:bg-slate-50 transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
+          title="Keyboard Shortcuts (?)"
         >
-          <HelpCircle className="w-4 h-4" />
+          <HelpCircle className="w-3.5 h-3.5 text-slate-500" />
+          <span className="hidden sm:inline">Shortcuts</span>
+          <kbd className="hidden md:inline font-mono text-[10px] bg-slate-100 text-slate-500 px-1 py-0.2 rounded border border-slate-200">?</kbd>
         </button>
       </div>
-
-      {/* Keyboard Shortcuts Modal / Tooltip */}
-      {showKeyboardHelp && (
-        <div className="absolute bottom-16 sm:bottom-20 left-3 sm:left-6 z-50 bg-slate-900/95 backdrop-blur-md text-white rounded-xl p-4 shadow-2xl border border-slate-700 w-72 text-xs">
-          <div className="font-bold text-sm mb-2 text-indigo-400">Keyboard Shortcuts</div>
-          <div className="space-y-1.5 text-slate-300">
-            <div className="flex justify-between">
-              <span>Add Child Idea</span>
-              <kbd className="bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700 font-mono">Tab</kbd>
-            </div>
-            <div className="flex justify-between">
-              <span>Add Sibling Idea</span>
-              <kbd className="bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700 font-mono">Enter</kbd>
-            </div>
-            <div className="flex justify-between">
-              <span>Edit Node Title</span>
-              <kbd className="bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700 font-mono">Double Click</kbd>
-            </div>
-            <div className="flex justify-between">
-              <span>Delete Node</span>
-              <kbd className="bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700 font-mono">Backspace</kbd>
-            </div>
-            <div className="flex justify-between">
-              <span>Pan Canvas</span>
-              <kbd className="bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700 font-mono">Drag Backdrop</kbd>
-            </div>
-            <div className="flex justify-between">
-              <span>Zoom In / Out</span>
-              <kbd className="bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700 font-mono">Pinch / Scroll</kbd>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Mini-map Widget (Bottom Right) */}
       <div className="absolute bottom-3 sm:bottom-6 right-3 sm:right-6 z-40">

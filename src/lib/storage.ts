@@ -402,18 +402,30 @@ export function getStoredMaps(userId?: string): MindMap[] {
   try {
     const key = getPrefixKey(MAPS_KEY, userId);
     const raw = localStorage.getItem(key);
+    const isPersonalUser = Boolean(userId && userId !== 'demo-user' && userId !== 'current-user');
+
     if (!raw) {
-      localStorage.setItem(key, JSON.stringify([SAMPLE_MAP]));
-      return [SAMPLE_MAP];
+      if (isPersonalUser) {
+        localStorage.setItem(key, JSON.stringify([]));
+        return [];
+      }
+      localStorage.setItem(key, JSON.stringify([]));
+      return [];
     }
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      localStorage.setItem(key, JSON.stringify([SAMPLE_MAP]));
-      return [SAMPLE_MAP];
+    if (!Array.isArray(parsed)) {
+      return [];
     }
-    return parsed;
+    // Filter out demo map to ensure the user only sees their personal content
+    const filtered = parsed.filter(
+      (m: MindMap) => m && m.id !== SAMPLE_MAP_ID && m.ownerId !== 'demo-user'
+    );
+    if (filtered.length !== parsed.length) {
+      localStorage.setItem(key, JSON.stringify(filtered));
+    }
+    return filtered;
   } catch {
-    return [SAMPLE_MAP];
+    return [];
   }
 }
 
@@ -426,13 +438,13 @@ export function getStoredNodes(mapId?: string, userId?: string): MindNode[] {
   try {
     const key = getPrefixKey(NODES_KEY, userId);
     const raw = localStorage.getItem(key);
-    const all: MindNode[] = raw ? JSON.parse(raw) : (mapId === SAMPLE_MAP_ID || !mapId ? SAMPLE_NODES : []);
+    const all: MindNode[] = raw ? JSON.parse(raw) : [];
     if (!raw) {
-      localStorage.setItem(key, JSON.stringify(SAMPLE_NODES));
+      localStorage.setItem(key, JSON.stringify([]));
     }
     return mapId ? all.filter((n) => n.mapId === mapId) : all;
   } catch {
-    return (mapId === SAMPLE_MAP_ID || !mapId) ? SAMPLE_NODES : [];
+    return [];
   }
 }
 
@@ -456,13 +468,13 @@ export function getStoredEdges(mapId?: string, userId?: string): MindEdge[] {
   try {
     const key = getPrefixKey(EDGES_KEY, userId);
     const raw = localStorage.getItem(key);
-    const all: MindEdge[] = raw ? JSON.parse(raw) : (mapId === SAMPLE_MAP_ID || !mapId ? SAMPLE_EDGES : []);
+    const all: MindEdge[] = raw ? JSON.parse(raw) : [];
     if (!raw) {
-      localStorage.setItem(key, JSON.stringify(SAMPLE_EDGES));
+      localStorage.setItem(key, JSON.stringify([]));
     }
     return mapId ? all.filter((e) => e.mapId === mapId) : all;
   } catch {
-    return (mapId === SAMPLE_MAP_ID || !mapId) ? SAMPLE_EDGES : [];
+    return [];
   }
 }
 
@@ -487,17 +499,28 @@ export function getStoredTasks(userId?: string): TaskItem[] {
     const key = getPrefixKey(TASKS_KEY, userId);
     const raw = localStorage.getItem(key);
     if (!raw) {
-      localStorage.setItem(key, JSON.stringify(SAMPLE_TASKS));
-      return SAMPLE_TASKS;
+      localStorage.setItem(key, JSON.stringify([]));
+      return [];
     }
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      localStorage.setItem(key, JSON.stringify(SAMPLE_TASKS));
-      return SAMPLE_TASKS;
+    if (!Array.isArray(parsed)) {
+      return [];
     }
-    return parsed;
+    // Filter out sample demo tasks to ensure the user only sees personal tasks
+    const filtered = parsed.filter(
+      (t: TaskItem) =>
+        t &&
+        t.mapId !== SAMPLE_MAP_ID &&
+        t.id !== 'task-1' &&
+        t.id !== 'task-2' &&
+        t.id !== 'task-3'
+    );
+    if (filtered.length !== parsed.length) {
+      localStorage.setItem(key, JSON.stringify(filtered));
+    }
+    return filtered;
   } catch {
-    return SAMPLE_TASKS;
+    return [];
   }
 }
 
@@ -511,17 +534,23 @@ export function getStoredGoals(userId?: string): GoalItem[] {
     const key = getPrefixKey(GOALS_KEY, userId);
     const raw = localStorage.getItem(key);
     if (!raw) {
-      localStorage.setItem(key, JSON.stringify(SAMPLE_GOALS));
-      return SAMPLE_GOALS;
+      localStorage.setItem(key, JSON.stringify([]));
+      return [];
     }
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      localStorage.setItem(key, JSON.stringify(SAMPLE_GOALS));
-      return SAMPLE_GOALS;
+    if (!Array.isArray(parsed)) {
+      return [];
     }
-    return parsed;
+    // Filter out sample demo goals to ensure the user only sees personal goals
+    const filtered = parsed.filter(
+      (g: GoalItem) => g && g.mapId !== SAMPLE_MAP_ID && g.id !== 'goal-1'
+    );
+    if (filtered.length !== parsed.length) {
+      localStorage.setItem(key, JSON.stringify(filtered));
+    }
+    return filtered;
   } catch {
-    return SAMPLE_GOALS;
+    return [];
   }
 }
 

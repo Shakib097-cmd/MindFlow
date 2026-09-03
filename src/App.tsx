@@ -24,6 +24,7 @@ import { PricingModal } from './components/modals/PricingModal';
 import { VersionHistoryModal } from './components/modals/VersionHistoryModal';
 import { SettingsModal } from './components/modals/SettingsModal';
 import { QuickNotesModal } from './components/modals/QuickNotesModal';
+import { KeyboardShortcutsModal } from './components/modals/KeyboardShortcutsModal';
 import { CookieConsentBanner } from './components/legal/CookieConsentBanner';
 import confetti from 'canvas-confetti';
 
@@ -151,6 +152,7 @@ const MainLayout: React.FC = () => {
       <VersionHistoryModal />
       <SettingsModal />
       <QuickNotesModal />
+      <KeyboardShortcutsModal />
       <CookieConsentBanner onNavigateToCookiePolicy={() => openLegal('cookies')} />
     </div>
   );

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useWorkspace, WorkspaceView } from '../../context/WorkspaceContext';
 import {
   LayoutDashboard,
@@ -33,8 +33,10 @@ import { AIUsageProgressBar } from '../common/AIUsageProgressBar';
 import { useAuth } from '../../context/AuthContext';
 
 export const Sidebar: React.FC = () => {
-  const { user } = useAuth();
-  const isAdmin = user?.email?.trim().toLowerCase() === 'starcybercafe097@gmail.com';
+  const { user, profile } = useAuth();
+  const isAdmin =
+    (user?.email || '').trim().toLowerCase() === 'starcybercafe097@gmail.com' ||
+    (profile?.email || '').trim().toLowerCase() === 'starcybercafe097@gmail.com';
 
   const {
     currentView,
@@ -56,6 +58,28 @@ export const Sidebar: React.FC = () => {
   } = useWorkspace();
 
   const [isHelpOpen, setIsHelpOpen] = useState(true);
+
+  // Strictly personal content isolation for sidebar counters
+  const personalMaps = useMemo(
+    () => allMaps.filter((m) => !m.isTrash && m.id !== 'map-mindflow-demo' && m.ownerId !== 'demo-user'),
+    [allMaps]
+  );
+  const favoriteMaps = useMemo(
+    () => allMaps.filter((m) => m.isFavorite && !m.isTrash && m.id !== 'map-mindflow-demo' && m.ownerId !== 'demo-user'),
+    [allMaps]
+  );
+  const trashMaps = useMemo(
+    () => allMaps.filter((m) => m.isTrash && m.id !== 'map-mindflow-demo' && m.ownerId !== 'demo-user'),
+    [allMaps]
+  );
+  const personalTasks = useMemo(
+    () => allTasks.filter((t) => t.mapId !== 'map-mindflow-demo' && !['task-1', 'task-2', 'task-3'].includes(t.id)),
+    [allTasks]
+  );
+  const personalGoals = useMemo(
+    () => allGoals.filter((g) => g.mapId !== 'map-mindflow-demo' && g.id !== 'goal-1'),
+    [allGoals]
+  );
 
   const handleNavigate = (view: WorkspaceView) => {
     setCurrentView(view);
@@ -119,7 +143,7 @@ export const Sidebar: React.FC = () => {
                 <span>My Mind Maps</span>
               </div>
               <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-md">
-                {allMaps.filter((m) => !m.isTrash).length}
+                {personalMaps.length}
               </span>
             </button>
 
@@ -171,7 +195,7 @@ export const Sidebar: React.FC = () => {
                 <span>Favorites</span>
               </div>
               <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-md">
-                {allMaps.filter((m) => m.isFavorite && !m.isTrash).length}
+                {favoriteMaps.length}
               </span>
             </button>
 
@@ -198,7 +222,7 @@ export const Sidebar: React.FC = () => {
                 <span>Trash</span>
               </div>
               <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-md">
-                {allMaps.filter((m) => m.isTrash).length}
+                {trashMaps.length}
               </span>
             </button>
           </div>
@@ -239,7 +263,7 @@ export const Sidebar: React.FC = () => {
                 <span>Tasks Kanban</span>
               </div>
               <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-md">
-                {allTasks.length}
+                {personalTasks.length}
               </span>
             </button>
 
@@ -257,7 +281,7 @@ export const Sidebar: React.FC = () => {
                 <span>Goals & OKRs</span>
               </div>
               <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-md">
-                {allGoals.length}
+                {personalGoals.length}
               </span>
             </button>
 

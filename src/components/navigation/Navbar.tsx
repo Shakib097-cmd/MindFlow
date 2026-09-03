@@ -30,9 +30,11 @@ import {
   Loader2,
   AlertCircle,
   BookOpen,
+  HelpCircle,
 } from 'lucide-react';
 import { AIUsageProgressBar } from '../common/AIUsageProgressBar';
 import { UsageMeter } from '../common/UsageMeter';
+import { AuthModal } from '../modals/AuthModal';
 
 export const Navbar: React.FC = () => {
   const {
@@ -60,6 +62,7 @@ export const Navbar: React.FC = () => {
     syncNow,
     openLegal,
     openUserManual,
+    setIsKeyboardShortcutsOpen,
   } = useWorkspace();
 
   const { user, profile, signOut } = useAuth();
@@ -69,6 +72,7 @@ export const Navbar: React.FC = () => {
   const [showCreateMenu, setShowCreateMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   const NAV_LINKS: Array<{ id: WorkspaceView; label: string }> = [
     { id: 'editor', label: 'Editor' },
@@ -224,6 +228,17 @@ export const Navbar: React.FC = () => {
         >
           <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
           <span className="hidden sm:inline">AI Copilot</span>
+        </button>
+
+        {/* Keyboard Shortcuts Trigger */}
+        <button
+          id="navbar-shortcuts-btn"
+          onClick={() => setIsKeyboardShortcutsOpen(true)}
+          className="p-1.5 sm:px-2 sm:py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 hover:text-indigo-600 transition-colors hidden md:flex items-center gap-1 text-xs font-semibold shadow-2xs cursor-pointer"
+          title="Keyboard Shortcuts (?)"
+        >
+          <HelpCircle className="w-3.5 h-3.5 text-slate-500" />
+          <kbd className="font-mono text-[10px] bg-slate-100 text-slate-500 px-1 py-0.2 rounded border border-slate-200">?</kbd>
         </button>
 
         {/* Create Dropdown */}
@@ -416,6 +431,20 @@ export const Navbar: React.FC = () => {
                   <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
                   User Manual & Docs
                 </button>
+                <button
+                  id="user-menu-keyboard-shortcuts-btn"
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    setIsKeyboardShortcutsOpen(true);
+                  }}
+                  className="w-full text-left px-4 py-1.5 text-xs hover:bg-slate-50 text-slate-700 flex items-center justify-between font-medium cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <HelpCircle className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Keyboard Shortcuts</span>
+                  </div>
+                  <kbd className="font-mono text-[10px] bg-slate-100 text-slate-500 px-1 py-0.2 rounded border border-slate-200">?</kbd>
+                </button>
                 {isAdmin && (
                   <button
                     id="user-menu-admin-btn"
@@ -423,12 +452,26 @@ export const Navbar: React.FC = () => {
                       setShowUserMenu(false);
                       setCurrentView('admin');
                     }}
-                    className="w-full text-left px-4 py-1.5 text-xs hover:bg-indigo-50 text-indigo-700 flex items-center gap-2 font-semibold cursor-pointer"
+                    className="w-full text-left px-4 py-2 text-xs bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 flex items-center justify-between font-bold cursor-pointer border-t border-b border-indigo-200 my-1"
                   >
-                    <Crown className="w-3.5 h-3.5 text-indigo-600" />
-                    Admin Console
+                    <div className="flex items-center gap-2">
+                      <Crown className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Admin Console</span>
+                    </div>
+                    <span className="text-[9px] bg-indigo-600 text-white px-1.5 py-0.5 rounded font-mono font-bold">OWNER</span>
                   </button>
                 )}
+                <button
+                  id="user-menu-auth-btn"
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    setIsAuthModalOpen(true);
+                  }}
+                  className="w-full text-left px-4 py-1.5 text-xs hover:bg-slate-50 text-slate-700 flex items-center gap-2 cursor-pointer font-medium"
+                >
+                  <User className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Account & Admin Login</span>
+                </button>
                 <button
                   id="user-menu-legal-btn"
                   onClick={() => openLegal('privacy')}
@@ -473,6 +516,9 @@ export const Navbar: React.FC = () => {
           </button>
         </div>
       )}
+
+      {/* Account & Admin Sign-in Modal */}
+      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
     </nav>
   );
 };

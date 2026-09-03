@@ -58,6 +58,7 @@ export const MyMapsView: React.FC = () => {
   const folderColors = ['#4f46e5', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4'];
 
   const filtered = allMaps
+    .filter((m) => m && m.id !== 'map-mindflow-demo' && m.ownerId !== 'demo-user')
     .filter((m) => {
       // Trash vs Active tab
       if (activeTab === 'trash') {

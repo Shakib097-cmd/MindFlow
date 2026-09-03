@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import { TaskItem, TaskStatus, PriorityLevel, SubtaskItem, MindNode } from '../../types';
 import { getStoredNodes } from '../../lib/storage';
@@ -107,7 +107,11 @@ export const TasksKanbanView: React.FC = () => {
     openMap,
     setSelectedNodeId,
     setCurrentView,
+    setIsKeyboardShortcutsOpen,
   } = useWorkspace();
+
+  // Active keyboard selection state
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -441,42 +445,223 @@ export const TasksKanbanView: React.FC = () => {
     setDragOverColumn(null);
   };
 
-  // Filtering & Sorting
+  // Filtering & Sorting (Strictly Personal Tasks)
+  const personalTasks = useMemo(
+    () =>
+      allTasks.filter(
+        (t) =>
+          t &&
+          t.mapId !== 'map-mindflow-demo' &&
+          !['task-1', 'task-2', 'task-3'].includes(t.id)
+      ),
+    [allTasks]
+  );
+
   const filteredTasks = useMemo(() => {
-    return allTasks.filter((t) => {
-      // Map filter
-      if (selectedMapFilter !== 'All' && t.mapId !== selectedMapFilter) return false;
-      // Priority filter
-      if (selectedPriorityFilter !== 'All' && t.priority !== selectedPriorityFilter.toLowerCase()) return false;
-      // Search keyword
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchTitle = t.title.toLowerCase().includes(q);
-        const matchDesc = t.description?.toLowerCase().includes(q) || false;
-        const matchMap = t.mapTitle?.toLowerCase().includes(q) || false;
-        if (!matchTitle && !matchDesc && !matchMap) return false;
-      }
-      return true;
-    }).sort((a, b) => {
-      if (sortBy === 'priority') {
-        const weight: Record<PriorityLevel, number> = { urgent: 4, high: 3, medium: 2, low: 1 };
-        return (weight[b.priority] || 1) - (weight[a.priority] || 1);
-      }
-      if (sortBy === 'dueDate') {
-        if (!a.dueDate) return 1;
-        if (!b.dueDate) return -1;
-        return a.dueDate.localeCompare(b.dueDate);
-      }
-      return b.createdAt - a.createdAt;
-    });
-  }, [allTasks, selectedMapFilter, selectedPriorityFilter, searchQuery, sortBy]);
+    return personalTasks
+      .filter((t) => {
+        // Map filter
+        if (selectedMapFilter !== 'All' && t.mapId !== selectedMapFilter) return false;
+        // Priority filter
+        if (selectedPriorityFilter !== 'All' && t.priority !== selectedPriorityFilter.toLowerCase()) return false;
+        // Search keyword
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase();
+          const matchTitle = t.title.toLowerCase().includes(q);
+          const matchDesc = t.description?.toLowerCase().includes(q) || false;
+          const matchMap = t.mapTitle?.toLowerCase().includes(q) || false;
+          if (!matchTitle && !matchDesc && !matchMap) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        if (sortBy === 'priority') {
+          const weight: Record<PriorityLevel, number> = { urgent: 4, high: 3, medium: 2, low: 1 };
+          return (weight[b.priority] || 1) - (weight[a.priority] || 1);
+        }
+        if (sortBy === 'dueDate') {
+          if (!a.dueDate) return 1;
+          if (!b.dueDate) return -1;
+          return a.dueDate.localeCompare(b.dueDate);
+        }
+        return b.createdAt - a.createdAt;
+      });
+  }, [personalTasks, selectedMapFilter, selectedPriorityFilter, searchQuery, sortBy]);
 
   // Overall statistics
-  const total = allTasks.length;
-  const completed = allTasks.filter((t) => t.status === 'done').length;
-  const inProgressCount = allTasks.filter((t) => t.status === 'in_progress').length;
-  const urgentCount = allTasks.filter((t) => t.priority === 'urgent' && t.status !== 'done').length;
+  const total = personalTasks.length;
+  const completed = personalTasks.filter((t) => t.status === 'done').length;
+  const inProgressCount = personalTasks.filter((t) => t.status === 'in_progress').length;
+  const urgentCount = personalTasks.filter((t) => t.priority === 'urgent' && t.status !== 'done').length;
   const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+  // Keyboard Shortcuts for Kanban Navigation & Fast Triage
+  useEffect(() => {
+    const handleKanbanKeyDown = (e: KeyboardEvent) => {
+      // Ignore if typing inside input, textarea, or contentEditable
+      const target = e.target as HTMLElement | null;
+      if (
+        target?.tagName === 'INPUT' ||
+        target?.tagName === 'TEXTAREA' ||
+        target?.isContentEditable
+      ) {
+        return;
+      }
+
+      // If a modal is open, don't trigger board navigation
+      if (isTaskModalOpen || isImportModalOpen || isAIPlanModalOpen) {
+        return;
+      }
+
+      // Help Modal (?)
+      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+        e.preventDefault();
+        setIsKeyboardShortcutsOpen(true);
+        return;
+      }
+
+      // Focus search (/ or Ctrl/Cmd + F)
+      if (e.key === '/' || ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f')) {
+        e.preventDefault();
+        const searchEl = document.getElementById('kanban-search-input');
+        searchEl?.focus();
+        return;
+      }
+
+      // Create new task (N or C)
+      if ((e.key.toLowerCase() === 'n' || e.key.toLowerCase() === 'c') && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        handleOpenCreateTaskModal('todo');
+        return;
+      }
+
+      // Clear selection or escape
+      if (e.key === 'Escape') {
+        if (selectedTaskId) {
+          e.preventDefault();
+          setSelectedTaskId(null);
+        }
+        return;
+      }
+
+      // All visible tasks in order
+      if (filteredTasks.length === 0) return;
+
+      const currentIdx = filteredTasks.findIndex((t) => t.id === selectedTaskId);
+
+      // Select Next Task (J or ArrowDown)
+      if (e.key.toLowerCase() === 'j' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (currentIdx === -1 || currentIdx >= filteredTasks.length - 1) {
+          setSelectedTaskId(filteredTasks[0].id);
+        } else {
+          setSelectedTaskId(filteredTasks[currentIdx + 1].id);
+        }
+        return;
+      }
+
+      // Select Previous Task (K or ArrowUp)
+      if (e.key.toLowerCase() === 'k' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (currentIdx <= 0) {
+          setSelectedTaskId(filteredTasks[filteredTasks.length - 1].id);
+        } else {
+          setSelectedTaskId(filteredTasks[currentIdx - 1].id);
+        }
+        return;
+      }
+
+      // The following actions require a selected task:
+      if (!selectedTaskId) return;
+      const activeTask = filteredTasks.find((t) => t.id === selectedTaskId);
+      if (!activeTask) return;
+
+      // Edit Selected Task (E or Enter)
+      if (e.key.toLowerCase() === 'e' || e.key === 'Enter') {
+        e.preventDefault();
+        handleOpenEditTaskModal(activeTask);
+        return;
+      }
+
+      // Delete Task (Delete or Backspace)
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault();
+        deleteTask(activeTask.id);
+        setSelectedTaskId(null);
+        return;
+      }
+
+      // Move to previous column (H or ArrowLeft or [)
+      if (e.key.toLowerCase() === 'h' || e.key === 'ArrowLeft' || e.key === '[') {
+        e.preventDefault();
+        handleMoveColumn(activeTask, 'prev');
+        return;
+      }
+
+      // Move to next column (L or ArrowRight or ])
+      if (e.key.toLowerCase() === 'l' || e.key === 'ArrowRight' || e.key === ']') {
+        e.preventDefault();
+        handleMoveColumn(activeTask, 'next');
+        return;
+      }
+
+      // Direct column movement (1: backlog, 2: todo, 3: in_progress, 4: review, 5: done)
+      const columnKeys: Record<string, TaskStatus> = {
+        '1': 'backlog',
+        '2': 'todo',
+        '3': 'in_progress',
+        '4': 'review',
+        '5': 'done',
+      };
+      if (columnKeys[e.key]) {
+        e.preventDefault();
+        const targetStatus = columnKeys[e.key];
+        updateTask(activeTask.id, { status: targetStatus });
+        if (targetStatus === 'done') {
+          triggerCelebration();
+        }
+        return;
+      }
+
+      // Cycle Priority (P)
+      if (e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        const priorityCycle: Record<PriorityLevel, PriorityLevel> = {
+          low: 'medium',
+          medium: 'high',
+          high: 'urgent',
+          urgent: 'low',
+        };
+        updateTask(activeTask.id, { priority: priorityCycle[activeTask.priority] || 'medium' });
+        return;
+      }
+
+      // Toggle Done / In-Progress (Space)
+      if (e.key === ' ') {
+        e.preventDefault();
+        if (activeTask.status === 'done') {
+          updateTask(activeTask.id, { status: 'in_progress' });
+        } else {
+          updateTask(activeTask.id, { status: 'done' });
+          triggerCelebration();
+        }
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKanbanKeyDown);
+    return () => window.removeEventListener('keydown', handleKanbanKeyDown);
+  }, [
+    selectedTaskId,
+    filteredTasks,
+    isTaskModalOpen,
+    isImportModalOpen,
+    isAIPlanModalOpen,
+    deleteTask,
+    updateTask,
+    triggerCelebration,
+    setIsKeyboardShortcutsOpen,
+  ]);
 
   // Export Tasks to Markdown or CSV
   const handleExportTasks = (format: 'markdown' | 'csv') => {
@@ -620,6 +805,18 @@ export const TasksKanbanView: React.FC = () => {
             <span>AI Action Plan</span>
           </button>
 
+          {/* Keyboard Shortcuts Button */}
+          <button
+            id="kanban-shortcuts-btn"
+            onClick={() => setIsKeyboardShortcutsOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-600 hover:text-indigo-600 border border-slate-200 text-xs font-semibold shadow-2xs hover:border-slate-300 transition-all cursor-pointer"
+            title="Available Keyboard Shortcuts (?)"
+          >
+            <HelpCircle className="w-3.5 h-3.5 text-slate-500" />
+            <span className="hidden sm:inline">Shortcuts</span>
+            <kbd className="hidden md:inline font-mono text-[10px] bg-slate-100 text-slate-500 px-1 py-0.2 rounded border border-slate-200">?</kbd>
+          </button>
+
           {/* New Task Button */}
           <button
             id="add-task-btn"
@@ -640,10 +837,11 @@ export const TasksKanbanView: React.FC = () => {
         <div className="relative flex-1 max-w-md">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
+            id="kanban-search-input"
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search action workflows, tasks, or map nodes..."
+            placeholder="Search tasks, or press / to filter..."
             className="w-full pl-9 pr-8 py-1.5 bg-slate-50 hover:bg-slate-100/80 focus:bg-white border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
           />
           {searchQuery && (
@@ -784,12 +982,19 @@ export const TasksKanbanView: React.FC = () => {
                     const subtasks = task.subtasks || [];
                     const doneSubtasks = subtasks.filter((st) => st.completed).length;
 
+                    const isSelected = selectedTaskId === task.id;
+
                     return (
                       <div
                         key={task.id}
                         draggable
+                        onClick={() => setSelectedTaskId(task.id)}
                         onDragStart={(e) => handleDragStart(e, task.id)}
-                        className={`bg-white rounded-xl p-3.5 border ${column.borderColor} shadow-xs hover:shadow-md transition-all cursor-grab active:cursor-grabbing flex flex-col justify-between group`}
+                        className={`bg-white rounded-xl p-3.5 border transition-all cursor-grab active:cursor-grabbing flex flex-col justify-between group relative ${
+                          isSelected
+                            ? 'border-indigo-500 ring-2 ring-indigo-500/50 shadow-md'
+                            : `${column.borderColor} shadow-xs hover:shadow-md`
+                        }`}
                       >
                         <div>
                           {/* Card Top: Priority & Action Buttons */}

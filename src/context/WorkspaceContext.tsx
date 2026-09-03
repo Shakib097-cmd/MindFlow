@@ -177,6 +177,8 @@ interface WorkspaceContextType {
   setIsSettingsOpen: (open: boolean) => void;
   isQuickNotesOpen: boolean;
   setIsQuickNotesOpen: (open: boolean) => void;
+  isKeyboardShortcutsOpen: boolean;
+  setIsKeyboardShortcutsOpen: (open: boolean) => void;
   isMobileMenuOpen: boolean;
   setIsMobileMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
   recordUsage: (type: 'ai' | 'map' | 'export' | 'voice') => Promise<UsageData>;
@@ -300,6 +302,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isQuickNotesOpen, setIsQuickNotesOpen] = useState(false);
+  const [isKeyboardShortcutsOpen, setIsKeyboardShortcutsOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const { user, profile } = useAuth();
@@ -367,13 +370,57 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
   }, [activeUserId]);
 
-  // Load User Cached Data on Initial Mount or User Switch (Strict Isolation)
+  // Global Keyboard Shortcuts (Help / Cheat Sheet)
   useEffect(() => {
-    const loadedMaps = getStoredMaps(activeUserId);
-    const loadedTasks = getStoredTasks(activeUserId);
-    const loadedGoals = getStoredGoals(activeUserId);
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Ignore if typing inside input, textarea, or contentEditable
+      const target = e.target as HTMLElement | null;
+      if (
+        target?.tagName === 'INPUT' ||
+        target?.tagName === 'TEXTAREA' ||
+        target?.isContentEditable
+      ) {
+        return;
+      }
+
+      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+        e.preventDefault();
+        setIsKeyboardShortcutsOpen((prev) => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
+
+  // Load User Cached Data on Initial Mount or User Switch (Strict Personal Isolation)
+  useEffect(() => {
+    // Strictly isolate personal content: remove any demo seeds
+    const rawMaps = getStoredMaps(activeUserId);
+    const rawTasks = getStoredTasks(activeUserId);
+    const rawGoals = getStoredGoals(activeUserId);
     const loadedFolders = getStoredFolders(activeUserId);
     const loadedNotes = getStoredQuickNotes(activeUserId);
+
+    const loadedMaps = rawMaps.filter(
+      (m) => m && m.id !== 'map-mindflow-demo' && m.ownerId !== 'demo-user'
+    );
+    const loadedTasks = rawTasks.filter(
+      (t) =>
+        t &&
+        t.mapId !== 'map-mindflow-demo' &&
+        t.id !== 'task-1' &&
+        t.id !== 'task-2' &&
+        t.id !== 'task-3'
+    );
+    const loadedGoals = rawGoals.filter(
+      (g) => g && g.mapId !== 'map-mindflow-demo' && g.id !== 'goal-1'
+    );
+
+    // Save cleaned personal data back to storage
+    saveStoredMaps(loadedMaps, activeUserId);
+    saveStoredTasks(loadedTasks, activeUserId);
+    saveStoredGoals(loadedGoals, activeUserId);
 
     setAllMaps(loadedMaps);
     setAllTasks(loadedTasks);
@@ -393,11 +440,60 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setHistory([{ nodes: loadedNodes, edges: loadedEdges }]);
       setHistoryIndex(0);
     } else {
-      setActiveMap(null);
-      setNodes([]);
-      setEdges([]);
-      setHistory([]);
-      setHistoryIndex(-1);
+      // Create a clean, pristine default personal map for the user
+      const initialMapId = 'map-' + Date.now();
+      const initialRootId = 'node-root-' + Date.now();
+      const defaultPersonalMap: MindMap = {
+        id: initialMapId,
+        ownerId: activeUserId,
+        title: 'My Mind Map',
+        category: 'General',
+        visibility: 'private',
+        isFavorite: false,
+        layout: 'left-to-right',
+        rootNodeId: initialRootId,
+        nodesCount: 1,
+        tasksCount: 0,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      const defaultRootNode: MindNode = {
+        id: initialRootId,
+        mapId: initialMapId,
+        parentId: null,
+        title: 'Central Idea',
+        type: 'standard',
+        x: -120,
+        y: -37,
+        width: 240,
+        height: 74,
+        style: {
+          shape: 'rounded',
+          backgroundColor: '#4f46e5',
+          textColor: '#ffffff',
+          borderColor: '#4338ca',
+          borderWidth: 2,
+          fontSize: 'lg',
+          fontWeight: 'bold',
+          shadow: 'md',
+        },
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      const initialNodes = [defaultRootNode];
+      const initialEdges: MindEdge[] = [];
+
+      saveStoredMaps([defaultPersonalMap], activeUserId);
+      saveStoredNodes(initialNodes, initialMapId, activeUserId);
+      saveStoredEdges(initialEdges, initialMapId, activeUserId);
+
+      setAllMaps([defaultPersonalMap]);
+      setActiveMap(defaultPersonalMap);
+      setActiveLayout('left-to-right');
+      setNodes(initialNodes);
+      setEdges(initialEdges);
+      setHistory([{ nodes: initialNodes, edges: initialEdges }]);
+      setHistoryIndex(0);
     }
   }, [activeUserId]);
 
@@ -1121,7 +1217,10 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const addNodeChild = (parentId: string, title = 'New Idea', type: NodeType = 'idea'): MindNode => {
-    if (!activeMap) throw new Error('No active map');
+    let currentMap = activeMap;
+    if (!currentMap) {
+      currentMap = createNewMap('My Mind Map', 'left-to-right');
+    }
 
     const now = Date.now();
 
@@ -1130,7 +1229,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const rootId = 'node-' + Math.random().toString(36).substr(2, 9);
       const rootNode: MindNode = {
         id: rootId,
-        mapId: activeMap.id,
+        mapId: currentMap.id,
         parentId: null,
         title: title || 'Central Topic',
         type: 'standard',
@@ -1169,7 +1268,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     const childNode: MindNode = {
       id: childId,
-      mapId: activeMap.id,
+      mapId: currentMap.id,
       parentId,
       title,
       type,
@@ -1193,7 +1292,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     const newEdge: MindEdge = {
       id: 'edge-' + Math.random().toString(36).substr(2, 9),
-      mapId: activeMap.id,
+      mapId: currentMap.id,
       sourceId: parentId,
       targetId: childId,
       style: { color: parentColor, width: 2 },
@@ -1202,7 +1301,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const nextNodes = [...nodes, childNode];
     const nextEdges = [...edges, newEdge];
 
-    const arranged = applyLayout(nextNodes, nextEdges, activeLayout, activeMap.rootNodeId);
+    const arranged = applyLayout(nextNodes, nextEdges, activeLayout, currentMap.rootNodeId);
     setNodes(arranged);
     setEdges(nextEdges);
     setSelectedNodeId(childId);
@@ -1972,6 +2071,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setIsSettingsOpen,
         isQuickNotesOpen,
         setIsQuickNotesOpen,
+        isKeyboardShortcutsOpen,
+        setIsKeyboardShortcutsOpen,
         isMobileMenuOpen,
         setIsMobileMenuOpen,
         recordUsage,

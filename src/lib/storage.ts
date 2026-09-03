@@ -403,15 +403,17 @@ export function getStoredMaps(userId?: string): MindMap[] {
     const key = getPrefixKey(MAPS_KEY, userId);
     const raw = localStorage.getItem(key);
     if (!raw) {
-      if (!userId || userId === 'demo-user' || userId === 'current-user') {
-        localStorage.setItem(key, JSON.stringify([SAMPLE_MAP]));
-        return [SAMPLE_MAP];
-      }
-      return [];
+      localStorage.setItem(key, JSON.stringify([SAMPLE_MAP]));
+      return [SAMPLE_MAP];
     }
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      localStorage.setItem(key, JSON.stringify([SAMPLE_MAP]));
+      return [SAMPLE_MAP];
+    }
+    return parsed;
   } catch {
-    return (!userId || userId === 'demo-user' || userId === 'current-user') ? [SAMPLE_MAP] : [];
+    return [SAMPLE_MAP];
   }
 }
 
@@ -424,13 +426,13 @@ export function getStoredNodes(mapId?: string, userId?: string): MindNode[] {
   try {
     const key = getPrefixKey(NODES_KEY, userId);
     const raw = localStorage.getItem(key);
-    const all: MindNode[] = raw ? JSON.parse(raw) : (mapId === SAMPLE_MAP_ID ? SAMPLE_NODES : []);
-    if (!raw && (!userId || userId === 'demo-user')) {
+    const all: MindNode[] = raw ? JSON.parse(raw) : (mapId === SAMPLE_MAP_ID || !mapId ? SAMPLE_NODES : []);
+    if (!raw) {
       localStorage.setItem(key, JSON.stringify(SAMPLE_NODES));
     }
     return mapId ? all.filter((n) => n.mapId === mapId) : all;
   } catch {
-    return mapId === SAMPLE_MAP_ID ? SAMPLE_NODES : [];
+    return (mapId === SAMPLE_MAP_ID || !mapId) ? SAMPLE_NODES : [];
   }
 }
 
@@ -454,13 +456,13 @@ export function getStoredEdges(mapId?: string, userId?: string): MindEdge[] {
   try {
     const key = getPrefixKey(EDGES_KEY, userId);
     const raw = localStorage.getItem(key);
-    const all: MindEdge[] = raw ? JSON.parse(raw) : (mapId === SAMPLE_MAP_ID ? SAMPLE_EDGES : []);
-    if (!raw && (!userId || userId === 'demo-user')) {
+    const all: MindEdge[] = raw ? JSON.parse(raw) : (mapId === SAMPLE_MAP_ID || !mapId ? SAMPLE_EDGES : []);
+    if (!raw) {
       localStorage.setItem(key, JSON.stringify(SAMPLE_EDGES));
     }
     return mapId ? all.filter((e) => e.mapId === mapId) : all;
   } catch {
-    return mapId === SAMPLE_MAP_ID ? SAMPLE_EDGES : [];
+    return (mapId === SAMPLE_MAP_ID || !mapId) ? SAMPLE_EDGES : [];
   }
 }
 
@@ -485,15 +487,17 @@ export function getStoredTasks(userId?: string): TaskItem[] {
     const key = getPrefixKey(TASKS_KEY, userId);
     const raw = localStorage.getItem(key);
     if (!raw) {
-      if (!userId || userId === 'demo-user') {
-        localStorage.setItem(key, JSON.stringify(SAMPLE_TASKS));
-        return SAMPLE_TASKS;
-      }
-      return [];
+      localStorage.setItem(key, JSON.stringify(SAMPLE_TASKS));
+      return SAMPLE_TASKS;
     }
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      localStorage.setItem(key, JSON.stringify(SAMPLE_TASKS));
+      return SAMPLE_TASKS;
+    }
+    return parsed;
   } catch {
-    return (!userId || userId === 'demo-user') ? SAMPLE_TASKS : [];
+    return SAMPLE_TASKS;
   }
 }
 
@@ -507,15 +511,17 @@ export function getStoredGoals(userId?: string): GoalItem[] {
     const key = getPrefixKey(GOALS_KEY, userId);
     const raw = localStorage.getItem(key);
     if (!raw) {
-      if (!userId || userId === 'demo-user') {
-        localStorage.setItem(key, JSON.stringify(SAMPLE_GOALS));
-        return SAMPLE_GOALS;
-      }
-      return [];
+      localStorage.setItem(key, JSON.stringify(SAMPLE_GOALS));
+      return SAMPLE_GOALS;
     }
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      localStorage.setItem(key, JSON.stringify(SAMPLE_GOALS));
+      return SAMPLE_GOALS;
+    }
+    return parsed;
   } catch {
-    return (!userId || userId === 'demo-user') ? SAMPLE_GOALS : [];
+    return SAMPLE_GOALS;
   }
 }
 
@@ -608,15 +614,17 @@ export function getStoredQuickNotes(userId?: string): QuickNote[] {
     const key = getPrefixKey(QUICK_NOTES_KEY, userId);
     const raw = localStorage.getItem(key);
     if (!raw) {
-      if (!userId || userId === 'demo-user') {
-        localStorage.setItem(key, JSON.stringify(SAMPLE_QUICK_NOTES));
-        return SAMPLE_QUICK_NOTES;
-      }
-      return [];
+      localStorage.setItem(key, JSON.stringify(SAMPLE_QUICK_NOTES));
+      return SAMPLE_QUICK_NOTES;
     }
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      localStorage.setItem(key, JSON.stringify(SAMPLE_QUICK_NOTES));
+      return SAMPLE_QUICK_NOTES;
+    }
+    return parsed;
   } catch {
-    return (!userId || userId === 'demo-user') ? SAMPLE_QUICK_NOTES : [];
+    return SAMPLE_QUICK_NOTES;
   }
 }
 

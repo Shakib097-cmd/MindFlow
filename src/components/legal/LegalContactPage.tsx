@@ -283,7 +283,7 @@ export const LegalContactPage: React.FC<LegalContactPageProps> = ({
                 type="url"
                 value={referenceUrl}
                 onChange={(e) => setReferenceUrl(e.target.value)}
-                placeholder="https://mindflow.ai/share/..."
+                placeholder="https://mindworkflow.in/share/..."
                 className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:outline-hidden text-slate-900 font-mono text-[11px]"
               />
             </div>

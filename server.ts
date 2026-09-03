@@ -9,6 +9,8 @@ dotenv.config();
 
 const app = express();
 const PORT = 3000;
+const PRIMARY_PRODUCTION_DOMAIN = 'https://mindworkflow.in';
+const APP_URL = process.env.APP_URL || (process.env.NODE_ENV === 'production' ? PRIMARY_PRODUCTION_DOMAIN : `http://localhost:${PORT}`);
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -1086,9 +1088,11 @@ app.post('/api/billing/create-checkout-session', (req: Request, res: Response) =
     const { plan = 'pro', userId, successUrl, cancelUrl } = req.body;
     // In production with STRIPE_SECRET_KEY, Stripe session URL is returned
     const sessionMockId = 'cs_test_' + Math.random().toString(36).substr(2, 9);
+    const defaultSuccess = `${APP_URL}/?session_id=${sessionMockId}`;
     res.json({
       sessionId: sessionMockId,
-      url: successUrl || '/?session_id=' + sessionMockId,
+      url: successUrl || defaultSuccess,
+      cancelUrl: cancelUrl || `${APP_URL}/#pricing`,
       plan,
       status: 'active',
     });
@@ -1134,7 +1138,8 @@ app.post('/api/share/publish', (req: Request, res: Response) => {
     role,
     createdAt: Date.now(),
   });
-  res.json({ success: true, shareUrl: `/#share-${shareToken}` });
+  const fullShareUrl = `${APP_URL}/#share-${shareToken}`;
+  res.json({ success: true, shareUrl: `/#share-${shareToken}`, publicUrl: fullShareUrl });
 });
 
 app.get('/api/share/:shareToken', (req: Request, res: Response) => {

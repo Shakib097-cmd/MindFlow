@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import { useAuth } from '../../context/AuthContext';
 import { AIUsageProgressBar } from '../common/AIUsageProgressBar';
-import { testDatabaseConnection, DBConnectionTestResult } from '../../services/firestoreSyncService';
 import {
   Settings,
   Zap,
@@ -11,15 +10,11 @@ import {
   Sliders,
   Shield,
   Crown,
-  Database,
-  RefreshCw,
   Check,
   X,
   Layers,
   Activity,
-  CheckCircle2,
   AlertCircle,
-  Cloud,
   FileText,
   ExternalLink,
 } from 'lucide-react';
@@ -35,32 +30,10 @@ export const SettingsModal: React.FC = () => {
     openLegal,
   } = useWorkspace();
   const { profile, user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'usage' | 'account' | 'database' | 'preferences'>('usage');
+  const [activeTab, setActiveTab] = useState<'usage' | 'account' | 'preferences'>('usage');
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [dbTestResult, setDbTestResult] = useState<DBConnectionTestResult | null>(null);
-  const [isTestingDb, setIsTestingDb] = useState(false);
 
   if (!isSettingsOpen) return null;
-
-  const handleTestDatabase = async () => {
-    setIsTestingDb(true);
-    try {
-      const result = await testDatabaseConnection();
-      setDbTestResult(result);
-    } catch (err: any) {
-      setDbTestResult({
-        success: false,
-        latencyMs: 0,
-        projectId: 'gen-lang-client-0309605137',
-        databaseId: 'ai-studio-mindflowai-cf3076d6-fc09-4682-8c9d-182b3459b31f',
-        authStatus: user ? 'Authenticated' : 'Guest',
-        message: err?.message || 'Connection test failed',
-        timestamp: new Date().toLocaleTimeString(),
-      });
-    } finally {
-      setIsTestingDb(false);
-    }
-  };
 
   const handleRefreshUsage = () => {
     setIsRefreshing(true);
@@ -122,22 +95,6 @@ export const SettingsModal: React.FC = () => {
           >
             <User className="w-3.5 h-3.5" />
             <span>Account & Plan</span>
-          </button>
-
-          <button
-            id="tab-database-btn"
-            onClick={() => {
-              setActiveTab('database');
-              if (!dbTestResult) handleTestDatabase();
-            }}
-            className={`flex items-center gap-2 py-3 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition-colors cursor-pointer ${
-              activeTab === 'database'
-                ? 'border-indigo-600 text-indigo-600'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <Database className="w-3.5 h-3.5" />
-            <span>Database & Cloud</span>
           </button>
 
           <button
@@ -336,93 +293,7 @@ export const SettingsModal: React.FC = () => {
             </div>
           )}
 
-          {/* TAB 3: DATABASE & CLOUD SYNC */}
-          {activeTab === 'database' && (
-            <div className="space-y-5">
-              <div className="p-4 rounded-2xl bg-slate-900 text-white flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
-                    <Cloud className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-white">Google Cloud Firestore</h4>
-                    <p className="text-xs text-slate-400">
-                      Real-time cloud database & document synchronization
-                    </p>
-                  </div>
-                </div>
-                <button
-                  id="test-db-connection-btn"
-                  onClick={handleTestDatabase}
-                  disabled={isTestingDb}
-                  className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-2 shadow-xs transition-all cursor-pointer disabled:opacity-50"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isTestingDb ? 'animate-spin' : ''}`} />
-                  {isTestingDb ? 'Testing...' : 'Test Connection'}
-                </button>
-              </div>
-
-              {dbTestResult && (
-                <div className={`p-4 rounded-2xl border ${
-                  dbTestResult.success
-                    ? 'bg-emerald-50/50 border-emerald-200 text-emerald-950'
-                    : 'bg-rose-50/50 border-rose-200 text-rose-950'
-                } space-y-3`}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {dbTestResult.success ? (
-                        <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                      ) : (
-                        <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
-                      )}
-                      <div>
-                        <div className="text-xs font-bold">
-                          {dbTestResult.success ? 'Database Connected & Operational' : 'Connection Failed'}
-                        </div>
-                        <div className="text-[11px] opacity-80">{dbTestResult.message}</div>
-                      </div>
-                    </div>
-                    <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-white/80 border border-slate-200 shadow-2xs font-semibold">
-                      {dbTestResult.latencyMs}ms Latency
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 text-[11px] pt-2 border-t border-slate-200/60">
-                    <div>
-                      <span className="text-slate-500 block">Project ID:</span>
-                      <span className="font-mono font-medium truncate block">{dbTestResult.projectId}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500 block">Database Instance:</span>
-                      <span className="font-mono font-medium truncate block">{dbTestResult.databaseId}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500 block">Auth Status:</span>
-                      <span className="font-medium truncate block">{dbTestResult.authStatus}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500 block">Last Verified:</span>
-                      <span className="font-mono font-medium block">{dbTestResult.timestamp}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="p-4 rounded-2xl border border-slate-200 space-y-2.5 bg-slate-50/50">
-                <h5 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                  <Shield className="w-3.5 h-3.5 text-indigo-600" />
-                  Security Rules & Storage Architecture
-                </h5>
-                <ul className="text-xs text-slate-600 space-y-1.5 list-disc list-inside">
-                  <li><strong>Per-User Document Isolation</strong>: Private subcollections for `/users/{'{userId}'}/maps`</li>
-                  <li><strong>Strict Anti-Tampering</strong>: Quota & billing writes restricted to server Admin SDK</li>
-                  <li><strong>Public Shares</strong>: Read-only access governed by token validity and expiration</li>
-                </ul>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 4: WORKSPACE PREFERENCES */}
+          {/* TAB 3: WORKSPACE PREFERENCES */}
           {activeTab === 'preferences' && (
             <div className="space-y-4">
               <div className="space-y-2">

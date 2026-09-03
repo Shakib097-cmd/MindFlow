@@ -43,12 +43,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const parsed = JSON.parse(saved);
         setProfile(parsed);
-        if (parsed.id === 'demo-guest-user') {
+        if (parsed.id === 'demo-guest-user' || parsed.id === 'creator-guest') {
           setIsGuest(true);
         }
       } catch (err) {
         console.error('Error parsing stored profile', err);
       }
+    } else {
+      // Default active profile so application is immediately ready to use
+      const defaultProfile: UserProfile = {
+        id: 'creator-guest',
+        name: 'MindFlow Creator',
+        email: 'creator@mindflow.ai',
+        plan: 'pro',
+        onboardingCompleted: true,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      setProfile(defaultProfile);
+      setIsGuest(true);
+      localStorage.setItem(LOCAL_PROFILE_KEY, JSON.stringify(defaultProfile));
     }
 
     const unsubscribe = onAuthStateChanged(auth, (fbUser) => {

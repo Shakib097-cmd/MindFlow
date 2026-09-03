@@ -30,6 +30,8 @@ export const MindMapCanvas: React.FC = () => {
     selectedNodeId,
     selectedNodeIds,
     setSelectedNodeId,
+    editingNodeId,
+    setEditingNodeId,
     toggleNodeSelection,
     zoom,
     setZoom,
@@ -84,7 +86,17 @@ export const MindMapCanvas: React.FC = () => {
         return;
       }
 
-      if (e.key === 'Tab' && selectedNodeId) {
+      if (e.key === 'F2' && selectedNodeId) {
+        e.preventDefault();
+        setEditingNodeId(selectedNodeId);
+      } else if (e.key === 'Escape') {
+        if (editingNodeId) {
+          e.preventDefault();
+          setEditingNodeId(null);
+        } else if (selectedNodeId) {
+          setSelectedNodeId(null);
+        }
+      } else if (e.key === 'Tab' && selectedNodeId) {
         e.preventDefault();
         addNodeChild(selectedNodeId);
       } else if (e.key === 'Enter' && selectedNodeId) {
@@ -112,7 +124,7 @@ export const MindMapCanvas: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedNodeId, addNodeChild, addNodeSibling, deleteNode, undo, redo]);
+  }, [selectedNodeId, editingNodeId, setEditingNodeId, setSelectedNodeId, addNodeChild, addNodeSibling, deleteNode, undo, redo]);
 
   // Zoom with wheel
   const handleWheel = (e: React.WheelEvent) => {
@@ -134,6 +146,7 @@ export const MindMapCanvas: React.FC = () => {
       setIsPanning(true);
       setStartPanPos({ x: e.clientX - pan.x, y: e.clientY - pan.y });
       setSelectedNodeId(null);
+      setEditingNodeId(null);
     }
   };
 
@@ -167,6 +180,7 @@ export const MindMapCanvas: React.FC = () => {
         setIsPanning(true);
         setStartPanPos({ x: touch.clientX - pan.x, y: touch.clientY - pan.y });
         setSelectedNodeId(null);
+        setEditingNodeId(null);
       }
     } else if (e.touches.length === 2) {
       // 2 fingers pinch to zoom
@@ -496,6 +510,21 @@ export const MindMapCanvas: React.FC = () => {
 
         {/* Canvas Nodes Layer */}
         <div id="canvas-nodes-layer" className="absolute">
+          {nodes.length === 0 && (
+            <div className="absolute -top-16 -left-36 w-72 p-6 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200 shadow-xl text-center z-30">
+              <Sparkles className="w-8 h-8 text-indigo-600 mx-auto mb-2 animate-bounce" />
+              <h3 className="font-bold text-sm text-slate-800 mb-1">Canvas is Empty</h3>
+              <p className="text-xs text-slate-500 mb-3">Add a central idea to start mapping your thoughts.</p>
+              <button
+                id="empty-canvas-add-root-btn"
+                onClick={() => addNodeChild('', 'Central Topic')}
+                className="w-full py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer"
+              >
+                + Create Central Idea
+              </button>
+            </div>
+          )}
+
           {nodes.map((node) => {
             const count = childrenCountMap.get(node.id) || 0;
             const isMatch = searchResults.includes(node.id);

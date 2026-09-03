@@ -1,0 +1,17 @@
+{
+  "name": "MindFlow AI",
+  "short_name": "MindFlow",
+  "description": "AI Workspace for Turning Ideas Into Action — convert notes, voice, and documents into mind maps, tasks, and action plans.",
+  "start_url": "https://mindworkflow.in/",
+  "scope": "https://mindworkflow.in/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}

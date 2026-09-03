@@ -15,6 +15,7 @@ import {
   Link as LinkIcon,
   Tag,
   Palette,
+  Check,
 } from 'lucide-react';
 
 interface CanvasNodeProps {
@@ -47,9 +48,11 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
     updateNodeStyle,
     setIsAIAssistantOpen,
     setSelectedNodeId,
+    editingNodeId,
+    setEditingNodeId,
   } = useWorkspace();
 
-  const [isEditing, setIsEditing] = useState(false);
+  const isEditing = editingNodeId === node.id;
   const [editTitle, setEditTitle] = useState(node.title);
   const [showStyleMenu, setShowStyleMenu] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -71,15 +74,23 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
     } else {
       setEditTitle(node.title);
     }
-    setIsEditing(false);
+    if (editingNodeId === node.id) {
+      setEditingNodeId(null);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    e.stopPropagation();
+    (e.nativeEvent as any)?.stopImmediatePropagation?.();
     if (e.key === 'Enter') {
+      e.preventDefault();
       handleTitleSubmit();
     } else if (e.key === 'Escape') {
+      e.preventDefault();
       setEditTitle(node.title);
-      setIsEditing(false);
+      if (editingNodeId === node.id) {
+        setEditingNodeId(null);
+      }
     }
   };
 
@@ -140,16 +151,25 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
         isSelected ? 'z-30' : 'z-10'
       }`}
       onMouseDown={(e) => {
+        if (isEditing) {
+          e.stopPropagation();
+          return;
+        }
         e.stopPropagation();
         onDragStart(e, node.id);
       }}
       onTouchStart={(e) => {
+        if (isEditing) {
+          e.stopPropagation();
+          return;
+        }
         e.stopPropagation();
         onTouchDragStart?.(e, node.id);
       }}
       onDoubleClick={(e) => {
         e.stopPropagation();
-        setIsEditing(true);
+        setSelectedNodeId(node.id);
+        setEditingNodeId(node.id);
       }}
     >
       {/* Main Node Body */}
@@ -225,19 +245,50 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
             {/* Title or Inline Input */}
             <div className="flex-1 min-w-0">
               {isEditing ? (
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  onBlur={handleTitleSubmit}
-                  onKeyDown={handleKeyDown}
-                  className="w-full bg-white/95 text-slate-900 px-1 py-0.5 rounded text-xs font-semibold outline-hidden ring-2 ring-indigo-500"
+                <div
+                  className="flex items-center gap-1 w-full"
                   onClick={(e) => e.stopPropagation()}
-                />
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
+                >
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    onBlur={handleTitleSubmit}
+                    onKeyDown={handleKeyDown}
+                    onClick={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    className="w-full bg-white text-slate-900 px-1.5 py-0.5 rounded text-xs font-semibold outline-hidden ring-2 ring-indigo-500 border border-indigo-200 shadow-2xs"
+                  />
+                  <button
+                    type="button"
+                    title="Save (Enter)"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleTitleSubmit();
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    className="p-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 shadow-2xs cursor-pointer transition-colors"
+                  >
+                    <Check className="w-3 h-3 stroke-[3]" />
+                  </button>
+                </div>
               ) : (
                 <div
-                  className={`font-semibold tracking-tight break-words ${
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedNodeId(node.id);
+                  }}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedNodeId(node.id);
+                    setEditingNodeId(node.id);
+                  }}
+                  className={`font-semibold tracking-tight break-words cursor-pointer transition-colors hover:opacity-80 ${
                     node.status === 'done' ? 'line-through opacity-60' : ''
                   } ${
                     node.style.fontSize === 'xl'
@@ -246,6 +297,7 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
                       ? 'text-xs font-bold'
                       : 'text-xs font-medium'
                   }`}
+                  title="Click to select, double-click or press F2 to edit"
                 >
                   {node.title}
                 </div>
@@ -269,7 +321,7 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
               e.stopPropagation();
               toggleNodeCollapse(node.id);
             }}
-            className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-indigo-500 shadow-xs flex items-center justify-center text-[11px] font-bold z-20 transition-transform active:scale-95"
+            className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-indigo-500 shadow-xs flex items-center justify-center text-[11px] font-bold z-20 transition-transform active:scale-95 cursor-pointer"
             title={node.collapsed ? `Expand ${childCount} nodes` : 'Collapse'}
           >
             {node.collapsed ? `+${childCount}` : <ChevronDown className="w-3 h-3 text-slate-500" />}
@@ -279,8 +331,10 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
 
       {/* Floating Hover Action Toolbar */}
       <div
-        className={`absolute -top-10 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-slate-900/90 backdrop-blur-md px-2 py-1 rounded-lg shadow-lg border border-slate-700/60 text-white opacity-0 group-hover:opacity-100 transition-all duration-150 pointer-events-none group-hover:pointer-events-auto z-40 ${
-          isSelected ? 'opacity-100' : ''
+        className={`absolute -top-10 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-slate-900/90 backdrop-blur-md px-2 py-1 rounded-lg shadow-lg border border-slate-700/60 text-white transition-all duration-150 z-40 ${
+          isSelected
+            ? 'opacity-100 pointer-events-auto'
+            : 'opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto'
         }`}
       >
         {/* Add Child */}
@@ -307,6 +361,20 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
           title="Add Sibling Idea (Enter)"
         >
           +Sib
+        </button>
+
+        {/* Edit Node Title */}
+        <button
+          id={`edit-btn-${node.id}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            setSelectedNodeId(node.id);
+            setEditingNodeId(node.id);
+          }}
+          className="p-1 rounded hover:bg-slate-700 text-slate-200 hover:text-white transition-colors"
+          title="Edit Title (F2 / Double-Click)"
+        >
+          <Edit3 className="w-3.5 h-3.5 text-amber-300" />
         </button>
 
         {/* AI Expand */}

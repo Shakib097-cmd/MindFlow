@@ -117,6 +117,8 @@ interface WorkspaceContextType {
   setZoom: (z: number | ((prev: number) => number)) => void;
   setPan: (p: { x: number; y: number } | ((prev: { x: number; y: number }) => { x: number; y: number })) => void;
   setSelectedNodeId: (id: string | null) => void;
+  editingNodeId: string | null;
+  setEditingNodeId: (id: string | null) => void;
   toggleNodeSelection: (id: string, multi?: boolean) => void;
   setSearchQuery: (query: string) => void;
   openMap: (mapId: string) => void;
@@ -188,7 +190,7 @@ const WorkspaceContext = createContext<WorkspaceContextType | undefined>(undefin
 export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Initialize view from URL if matching a legal route or user manual route
   const getInitialRouteMatch = (): { view: WorkspaceView; legalDocId: LegalDocId; manualCategory: string } => {
-    if (typeof window === 'undefined') return { view: 'landing', legalDocId: 'privacy', manualCategory: 'getting-started' };
+    if (typeof window === 'undefined') return { view: 'dashboard', legalDocId: 'privacy', manualCategory: 'getting-started' };
     const path = window.location.pathname;
     if (path.startsWith('/help/user-manual') || path.startsWith('/user-manual')) {
       const hash = window.location.hash.replace('#', '');
@@ -198,7 +200,25 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (match) {
       return { view: 'legal', legalDocId: match.id as LegalDocId, manualCategory: 'getting-started' };
     }
-    return { view: 'landing', legalDocId: 'privacy', manualCategory: 'getting-started' };
+    if (path === '/landing') {
+      return { view: 'landing', legalDocId: 'privacy', manualCategory: 'getting-started' };
+    }
+    if (path === '/editor' || path === '/canvas') {
+      return { view: 'editor', legalDocId: 'privacy', manualCategory: 'getting-started' };
+    }
+    if (path === '/tasks') {
+      return { view: 'tasks', legalDocId: 'privacy', manualCategory: 'getting-started' };
+    }
+    if (path === '/templates') {
+      return { view: 'templates', legalDocId: 'privacy', manualCategory: 'getting-started' };
+    }
+    if (path === '/my-maps' || path === '/maps') {
+      return { view: 'my_maps', legalDocId: 'privacy', manualCategory: 'getting-started' };
+    }
+    if (path === '/admin') {
+      return { view: 'admin', legalDocId: 'privacy', manualCategory: 'getting-started' };
+    }
+    return { view: 'dashboard', legalDocId: 'privacy', manualCategory: 'getting-started' };
   };
 
   const initialRoute = getInitialRouteMatch();
@@ -257,6 +277,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [edges, setEdges] = useState<MindEdge[]>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
+  const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [zoom, setZoom] = useState<number>(1);
   const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [activeLayout, setActiveLayout] = useState<MapLayout>('left-to-right');
@@ -531,19 +552,23 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         return;
       }
 
-      if (hash.startsWith('#share-')) {
-        const token = hash.replace('#share-', '').trim();
-        if (token) {
-          const publicShare = await fetchPublicShareByToken(token);
-          if (publicShare && publicShare.mapData) {
-            setActiveMap(publicShare.mapData.map);
-            setActiveLayout(publicShare.mapData.map.layout || 'left-to-right');
-            setNodes(publicShare.mapData.nodes);
-            setEdges(publicShare.mapData.edges);
-            setHistory([{ nodes: publicShare.mapData.nodes, edges: publicShare.mapData.edges }]);
-            setHistoryIndex(0);
-            setCurrentView('editor');
-          }
+      const isSharePath = pathname.startsWith('/share/');
+      const token = hash.startsWith('#share-')
+        ? hash.replace('#share-', '').trim()
+        : isSharePath
+        ? pathname.replace('/share/', '').trim()
+        : null;
+
+      if (token) {
+        const publicShare = await fetchPublicShareByToken(token);
+        if (publicShare && publicShare.mapData) {
+          setActiveMap(publicShare.mapData.map);
+          setActiveLayout(publicShare.mapData.map.layout || 'left-to-right');
+          setNodes(publicShare.mapData.nodes);
+          setEdges(publicShare.mapData.edges);
+          setHistory([{ nodes: publicShare.mapData.nodes, edges: publicShare.mapData.edges }]);
+          setHistoryIndex(0);
+          setCurrentView('editor');
         }
       }
     };
@@ -1098,9 +1123,47 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const addNodeChild = (parentId: string, title = 'New Idea', type: NodeType = 'idea'): MindNode => {
     if (!activeMap) throw new Error('No active map');
 
+    const now = Date.now();
+
+    // If nodes is empty or parentId is not specified, create root node
+    if (nodes.length === 0 || !parentId) {
+      const rootId = 'node-' + Math.random().toString(36).substr(2, 9);
+      const rootNode: MindNode = {
+        id: rootId,
+        mapId: activeMap.id,
+        parentId: null,
+        title: title || 'Central Topic',
+        type: 'standard',
+        x: -120,
+        y: -37,
+        width: 240,
+        height: 74,
+        style: {
+          shape: 'rounded',
+          backgroundColor: '#4f46e5',
+          textColor: '#ffffff',
+          borderColor: '#4338ca',
+          borderWidth: 2,
+          fontSize: 'lg',
+          fontWeight: 'bold',
+          shadow: 'md',
+        },
+        createdAt: now,
+        updatedAt: now,
+      };
+      const nextNodes = [rootNode];
+      setNodes(nextNodes);
+      setEdges([]);
+      setSelectedNodeId(rootId);
+      setSelectedNodeIds([rootId]);
+      setEditingNodeId(rootId);
+      persistCanvasState(nextNodes, []);
+      pushHistory(nextNodes, []);
+      return rootNode;
+    }
+
     const parent = nodes.find((n) => n.id === parentId);
     const childId = 'node-' + Math.random().toString(36).substr(2, 9);
-    const now = Date.now();
 
     const parentColor = parent?.style.borderColor || '#4f46e5';
 
@@ -1144,6 +1207,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setEdges(nextEdges);
     setSelectedNodeId(childId);
     setSelectedNodeIds([childId]);
+    setEditingNodeId(childId);
     persistCanvasState(arranged, nextEdges);
     pushHistory(arranged, nextEdges);
 
@@ -1848,6 +1912,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setZoom,
         setPan,
         setSelectedNodeId,
+        editingNodeId,
+        setEditingNodeId,
         toggleNodeSelection,
         setSearchQuery,
         openMap,

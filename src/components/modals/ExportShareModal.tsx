@@ -3,6 +3,7 @@ import { useWorkspace } from '../../context/WorkspaceContext';
 import { useAuth } from '../../context/AuthContext';
 import { createOrUpdatePublicShare } from '../../services/firestoreSyncService';
 import { canExportFormat } from '../../services/entitlementsService';
+import { getShareUrl } from '../../config/domain';
 import {
   Share2,
   FileText,
@@ -30,7 +31,7 @@ export const ExportShareModal: React.FC = () => {
   if (!isExportShareOpen || !activeMap) return null;
 
   const shareToken = activeMap.shareToken || activeMap.id;
-  const shareUrl = `${window.location.origin}/#share-${shareToken}`;
+  const shareUrl = getShareUrl(shareToken);
 
   const handleCopyLink = async () => {
     setIsPublishing(true);

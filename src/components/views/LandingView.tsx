@@ -50,7 +50,7 @@ export const LandingView: React.FC = () => {
     openUserManual,
     setIsPricingOpen,
   } = useWorkspace();
-  const { loginAsGuest, signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth();
+  const { signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth();
 
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showCookieModal, setShowCookieModal] = useState(false);
@@ -70,14 +70,9 @@ export const LandingView: React.FC = () => {
   // Interactive FAQ Open item
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
 
-  const handleGuestDemo = () => {
-    loginAsGuest();
-    setCurrentView('dashboard');
-  };
-
-  const handleStartTemplate = (templateTitle: string) => {
-    loginAsGuest();
-    createMapFromTemplate(templateTitle);
+  const handleStartTemplate = (_templateTitle: string) => {
+    setAuthMode('signup');
+    setShowAuthModal(true);
   };
 
   const handleEmailAuth = async (e: React.FormEvent) => {
@@ -227,10 +222,14 @@ export const LandingView: React.FC = () => {
               Log In
             </button>
             <button
-              onClick={handleGuestDemo}
+              id="nav-start-for-free-btn"
+              onClick={() => {
+                setAuthMode('signup');
+                setShowAuthModal(true);
+              }}
               className="px-5 py-2.5 rounded-xl text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm hover:shadow-md hover:shadow-indigo-500/20 transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
             >
-              <span>Launch App Free</span>
+              <span>Start for Free</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
@@ -283,18 +282,20 @@ export const LandingView: React.FC = () => {
                   setAuthMode('signin');
                   setShowAuthModal(true);
                 }}
-                className="w-full py-2.5 rounded-xl text-sm font-semibold text-slate-700 bg-slate-100 text-center"
+                className="w-full py-2.5 rounded-xl text-sm font-semibold text-slate-700 bg-slate-100 text-center cursor-pointer"
               >
                 Log In
               </button>
               <button
+                id="mobile-start-for-free-btn"
                 onClick={() => {
                   setMobileMenuOpen(false);
-                  handleGuestDemo();
+                  setAuthMode('signup');
+                  setShowAuthModal(true);
                 }}
-                className="w-full py-2.5 rounded-xl text-sm font-bold bg-indigo-600 text-white text-center shadow-xs"
+                className="w-full py-2.5 rounded-xl text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white text-center shadow-xs cursor-pointer"
               >
-                Start Free Now
+                Start for Free
               </button>
             </div>
           </div>
@@ -332,19 +333,14 @@ export const LandingView: React.FC = () => {
             <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3.5">
               <button
                 id="hero-start-btn"
-                onClick={handleGuestDemo}
+                onClick={() => {
+                  setAuthMode('signup');
+                  setShowAuthModal(true);
+                }}
                 className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-base shadow-lg shadow-indigo-600/25 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2.5 cursor-pointer"
               >
                 <span>Start Creating Free</span>
                 <ArrowRight className="w-4 h-4" />
-              </button>
-
-              <button
-                onClick={() => scrollToSection('kanban-feature')}
-                className="w-full sm:w-auto px-6 py-4 rounded-2xl bg-white hover:bg-slate-50 text-slate-800 font-semibold text-base border border-slate-200 shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <FolderKanban className="w-4 h-4 text-indigo-600" />
-                <span>Explore Action Kanban</span>
               </button>
             </div>
 
@@ -665,10 +661,13 @@ export const LandingView: React.FC = () => {
 
                 <div className="pt-2">
                   <button
-                    onClick={handleGuestDemo}
+                    onClick={() => {
+                      setAuthMode('signup');
+                      setShowAuthModal(true);
+                    }}
                     className="px-6 py-3.5 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white font-bold text-sm shadow-md transition-all flex items-center gap-2 cursor-pointer"
                   >
-                    <span>Try Action Kanban in Live Demo</span>
+                    <span>Start Creating for Free</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
@@ -709,8 +708,14 @@ export const LandingView: React.FC = () => {
 
                 <div className="p-3 rounded-xl bg-indigo-950/60 border border-indigo-500/40 text-[11px] text-indigo-200 flex items-center justify-between">
                   <span>✨ 1-Click: "Convert Strategy Map to Sprint"</span>
-                  <span className="font-bold underline cursor-pointer" onClick={handleGuestDemo}>
-                    Execute Now
+                  <span
+                    className="font-bold underline cursor-pointer"
+                    onClick={() => {
+                      setAuthMode('signup');
+                      setShowAuthModal(true);
+                    }}
+                  >
+                    Get Started Free
                   </span>
                 </div>
               </div>
@@ -852,7 +857,10 @@ export const LandingView: React.FC = () => {
               </div>
 
               <button
-                onClick={handleGuestDemo}
+                onClick={() => {
+                  setAuthMode('signup');
+                  setShowAuthModal(true);
+                }}
                 className="self-start md:self-auto px-5 py-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
               >
                 <span>Explore All Templates</span>
@@ -994,10 +1002,14 @@ export const LandingView: React.FC = () => {
                 </div>
               </div>
               <button
-                onClick={handleGuestDemo}
-                className="mt-8 w-full py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 font-bold text-xs transition-colors cursor-pointer"
+                id="pricing-starter-free-btn"
+                onClick={() => {
+                  setAuthMode('signup');
+                  setShowAuthModal(true);
+                }}
+                className="mt-8 w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-colors cursor-pointer shadow-xs"
               >
-                Start Free
+                Start for Free
               </button>
             </div>
 
@@ -1144,7 +1156,11 @@ export const LandingView: React.FC = () => {
 
               <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3.5">
                 <button
-                  onClick={handleGuestDemo}
+                  id="bottom-start-creating-free-btn"
+                  onClick={() => {
+                    setAuthMode('signup');
+                    setShowAuthModal(true);
+                  }}
                   className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-base shadow-lg shadow-indigo-600/25 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <span>Start Creating Free</span>
@@ -1182,16 +1198,56 @@ export const LandingView: React.FC = () => {
       {/* Authentication Modal (Light Mode) */}
       {showAuthModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-sm p-6 animate-in zoom-in-95 duration-150 text-slate-900">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md p-6 animate-in zoom-in-95 duration-150 text-slate-900">
+            {/* Modal Header */}
             <div className="flex justify-between items-center pb-3 border-b border-slate-100 mb-4">
-              <h3 className="font-bold text-base text-slate-900">
-                {authMode === 'signup' ? 'Create MindFlow Account' : 'Welcome Back'}
-              </h3>
+              <div>
+                <h3 className="font-bold text-base text-slate-900">
+                  {authMode === 'signup' ? 'Create MindFlow Account' : 'Welcome Back'}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {authMode === 'signup'
+                    ? 'Start for free with mind mapping, action Kanban & AI'
+                    : 'Sign in to sync your mind maps and action plans'}
+                </p>
+              </div>
               <button
                 onClick={() => setShowAuthModal(false)}
-                className="text-slate-400 hover:text-slate-600 text-sm font-bold"
+                className="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 text-sm font-bold cursor-pointer"
               >
                 ✕
+              </button>
+            </div>
+
+            {/* Mode Switcher Tabs */}
+            <div className="flex p-1 bg-slate-100 rounded-xl mb-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('signup');
+                  setAuthError('');
+                }}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  authMode === 'signup'
+                    ? 'bg-white text-indigo-600 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Create Account (Free)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('signin');
+                  setAuthError('');
+                }}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  authMode === 'signin'
+                    ? 'bg-white text-indigo-600 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Sign In
               </button>
             </div>
 
@@ -1206,7 +1262,7 @@ export const LandingView: React.FC = () => {
               type="button"
               onClick={handleGoogleSignIn}
               disabled={authLoading}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-xs transition-colors mb-4"
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-xs transition-colors mb-4 cursor-pointer"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24">
                 <path
@@ -1282,9 +1338,15 @@ export const LandingView: React.FC = () => {
               <button
                 type="submit"
                 disabled={authLoading}
-                className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer"
+                className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer flex items-center justify-center gap-1.5"
               >
-                {authMode === 'signup' ? 'Sign Up Free' : 'Sign In'}
+                {authLoading ? (
+                  <span>Processing...</span>
+                ) : authMode === 'signup' ? (
+                  <span>Create Account for Free</span>
+                ) : (
+                  <span>Sign In</span>
+                )}
               </button>
             </form>
 
@@ -1293,8 +1355,11 @@ export const LandingView: React.FC = () => {
                 <>
                   Already have an account?{' '}
                   <button
-                    onClick={() => setAuthMode('signin')}
-                    className="text-indigo-600 font-bold hover:underline"
+                    onClick={() => {
+                      setAuthMode('signin');
+                      setAuthError('');
+                    }}
+                    className="text-indigo-600 font-bold hover:underline cursor-pointer"
                   >
                     Sign In
                   </button>
@@ -1303,10 +1368,13 @@ export const LandingView: React.FC = () => {
                 <>
                   Don't have an account?{' '}
                   <button
-                    onClick={() => setAuthMode('signup')}
-                    className="text-indigo-600 font-bold hover:underline"
+                    onClick={() => {
+                      setAuthMode('signup');
+                      setAuthError('');
+                    }}
+                    className="text-indigo-600 font-bold hover:underline cursor-pointer"
                   >
-                    Sign Up
+                    Create Free Account
                   </button>
                 </>
               )}

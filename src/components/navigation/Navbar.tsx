@@ -92,7 +92,7 @@ export const Navbar: React.FC = () => {
         <button
           id="mobile-menu-toggle-btn"
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="p-2 -ml-1 text-slate-600 hover:text-slate-900 lg:hidden rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+          className="p-2 -ml-1 text-slate-600 hover:text-slate-900 md:hidden rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
           aria-label="Toggle navigation menu"
         >
           {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -436,14 +436,21 @@ export const Navbar: React.FC = () => {
                 </button>
                 <button
                   id="user-menu-settings-btn"
-                  onClick={() => setIsSettingsOpen(true)}
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    setIsSettingsOpen(true);
+                  }}
                   className="w-full text-left px-4 py-1.5 text-xs hover:bg-slate-50 flex items-center gap-2 cursor-pointer text-slate-800"
                 >
                   <Settings className="w-3.5 h-3.5 text-slate-500" />
                   Settings & AI Limits
                 </button>
                 <button
-                  onClick={() => setIsPricingOpen(true)}
+                  id="user-menu-pricing-btn"
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    setIsPricingOpen(true);
+                  }}
                   className="w-full text-left px-4 py-1.5 text-xs hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
                 >
                   <Crown className="w-3.5 h-3.5 text-amber-500" />

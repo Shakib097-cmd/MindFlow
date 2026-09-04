@@ -13,6 +13,8 @@ import {
   UsageData,
   QuickNote,
   QuickNoteColor,
+  ActivityLogItem,
+  ActivityType,
 } from '../types';
 import { LegalDocId, ALL_LEGAL_LINKS } from '../data/legalData';
 import {
@@ -36,6 +38,10 @@ import {
   addStoredQuickNote,
   updateStoredQuickNote,
   deleteStoredQuickNote,
+  getStoredActivities,
+  saveStoredActivities,
+  addStoredActivity,
+  clearStoredActivities,
 } from '../lib/storage';
 import { applyLayout, parseHierarchyToCanvas, parseHierarchyAsBranch } from '../lib/layoutEngine';
 import { useAuth } from './AuthContext';
@@ -65,6 +71,7 @@ import {
   deductCreditsInFirestore,
   topupCreditsInFirestore,
 } from '../services/usageFirestoreService';
+import { db, doc, getDoc } from '../lib/firebase';
 import confetti from 'canvas-confetti';
 
 export type WorkspaceView =
@@ -116,6 +123,19 @@ interface WorkspaceContextType {
   allGoals: GoalItem[];
   allFolders: FolderItem[];
   quickNotes: QuickNote[];
+  activityLogs: ActivityLogItem[];
+  logActivity: (
+    type: ActivityType,
+    details: {
+      title: string;
+      description?: string;
+      targetId?: string;
+      targetTitle?: string;
+      targetType: ActivityLogItem['targetType'];
+      metadata?: Record<string, any>;
+    }
+  ) => ActivityLogItem;
+  clearActivityLogs: () => void;
   usage: UsageData;
   setZoom: (z: number | ((prev: number) => number)) => void;
   setPan: (p: { x: number; y: number } | ((prev: { x: number; y: number }) => { x: number; y: number })) => void;
@@ -193,6 +213,7 @@ interface WorkspaceContextType {
   fitToScreen: () => void;
   autoArrangeMap: (layout?: MapLayout) => void;
   triggerCelebration: () => void;
+  logSubscriptionDiagnostics: () => Promise<any>;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextType | undefined>(undefined);
@@ -356,6 +377,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [allGoals, setAllGoals] = useState<GoalItem[]>([]);
   const [allFolders, setAllFolders] = useState<FolderItem[]>([]);
   const [quickNotes, setQuickNotes] = useState<QuickNote[]>([]);
+  const [activityLogs, setActivityLogs] = useState<ActivityLogItem[]>([]);
   const [usage, setUsage] = useState<UsageData>(getStoredUsage());
 
   const [activeMap, setActiveMap] = useState<MindMap | null>(null);
@@ -403,6 +425,41 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setSyncStatus(navigator.onLine ? 'synced' : 'offline');
     }
   }, [syncStatus]);
+
+  const logActivity = useCallback(
+    (
+      type: ActivityType,
+      details: {
+        title: string;
+        description?: string;
+        targetId?: string;
+        targetTitle?: string;
+        targetType: ActivityLogItem['targetType'];
+        metadata?: Record<string, any>;
+      }
+    ): ActivityLogItem => {
+      const newAct = addStoredActivity(
+        {
+          type,
+          title: details.title,
+          description: details.description,
+          targetId: details.targetId,
+          targetTitle: details.targetTitle,
+          targetType: details.targetType,
+          metadata: details.metadata,
+        },
+        activeUserId
+      );
+      setActivityLogs(getStoredActivities(activeUserId));
+      return newAct;
+    },
+    [activeUserId]
+  );
+
+  const clearActivityLogs = useCallback(() => {
+    clearStoredActivities(activeUserId);
+    setActivityLogs([]);
+  }, [activeUserId]);
 
   // Wrapper for executing Firestore Cloud CRUD operations with live synchronization state tracking
   const performCloudOperation = useCallback(
@@ -512,6 +569,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setAllGoals(loadedGoals);
     setAllFolders(loadedFolders);
     setQuickNotes(loadedNotes);
+    setActivityLogs(getStoredActivities(activeUserId));
     setUsage(getStoredUsage());
 
     if (loadedMaps.length > 0) {
@@ -744,6 +802,94 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     triggerCelebration();
     return res;
   };
+
+  const logSubscriptionDiagnostics = useCallback(async () => {
+    let cloudUsageDoc: any = null;
+    let cloudSubscriptionDoc: any = null;
+    let serverQuotaResponse: any = null;
+    let serverEntitlementsResponse: any = null;
+
+    if (db && activeUserId && activeUserId !== 'demo-user') {
+      try {
+        const uSnap = await getDoc(doc(db, 'usage', activeUserId));
+        if (uSnap.exists()) cloudUsageDoc = uSnap.data();
+      } catch (e) {
+        console.warn('[WorkspaceContext] Firestore usage diagnostic fetch notice:', e);
+      }
+
+      try {
+        const sSnap = await getDoc(doc(db, 'subscriptions', activeUserId));
+        if (sSnap.exists()) cloudSubscriptionDoc = sSnap.data();
+      } catch (e) {
+        console.warn('[WorkspaceContext] Firestore subscription diagnostic fetch notice:', e);
+      }
+    }
+
+    try {
+      const res = await fetch(
+        `/api/billing/quota?userId=${encodeURIComponent(activeUserId)}&plan=${encodeURIComponent(activePlan)}`
+      );
+      if (res.ok) serverQuotaResponse = await res.json();
+    } catch (e) {
+      console.warn('[WorkspaceContext] Server quota diagnostic fetch notice:', e);
+    }
+
+    try {
+      const res = await fetch(`/api/entitlements?plan=${encodeURIComponent(activePlan)}`);
+      if (res.ok) serverEntitlementsResponse = await res.json();
+    } catch (e) {
+      console.warn('[WorkspaceContext] Server entitlements diagnostic fetch notice:', e);
+    }
+
+    const calculatedCreditBalance =
+      usage?.creditsBalance ??
+      (usage?.monthlyCredits || 0) + (usage?.topupCredits || 0) - (usage?.creditsUsed || 0);
+
+    const diagnostics = {
+      timestamp: new Date().toISOString(),
+      activeUserId,
+      activePlan,
+      uiUsageState: usage,
+      calculatedCreditBalance,
+      firestore: {
+        usageDoc: cloudUsageDoc,
+        subscriptionDoc: cloudSubscriptionDoc,
+      },
+      backendServer: {
+        quotaEndpoint: serverQuotaResponse,
+        entitlementsEndpoint: serverEntitlementsResponse,
+      },
+      useEntitlementValidation: {
+        matchesPlan: (serverQuotaResponse?.quota?.plan || activePlan) === activePlan,
+        matchesStatus:
+          (cloudUsageDoc?.subscriptionStatus || cloudSubscriptionDoc?.status || 'active') ===
+          (usage?.subscriptionStatus || 'active'),
+        hasExpectedBalanceKey:
+          typeof usage?.creditsBalance === 'number' || typeof cloudUsageDoc?.creditsBalance === 'number',
+        structureParity: {
+          hasMonthlyCredits: typeof usage?.monthlyCredits === 'number',
+          hasTopupCredits: typeof usage?.topupCredits === 'number',
+          hasCreditsUsed: typeof usage?.creditsUsed === 'number',
+          hasCreditsBalance: typeof usage?.creditsBalance === 'number',
+          hasAiGenerationsLimit: typeof usage?.aiGenerationsLimit === 'number',
+          hasAiGenerationsUsed: typeof usage?.aiGenerationsUsed === 'number',
+        },
+      },
+    };
+
+    console.group('📊 [WorkspaceContext Subscription & Entitlement Diagnostics]');
+    console.log('Timestamp:', diagnostics.timestamp);
+    console.log('User & Plan Context:', { activeUserId, activePlan });
+    console.log('Current UI Usage State:', diagnostics.uiUsageState);
+    console.log('Raw Firestore Usage Doc:', diagnostics.firestore.usageDoc);
+    console.log('Raw Firestore Subscription Doc:', diagnostics.firestore.subscriptionDoc);
+    console.log('Raw Backend Quota Object:', diagnostics.backendServer.quotaEndpoint);
+    console.log('Raw Backend Entitlements Object:', diagnostics.backendServer.entitlementsEndpoint);
+    console.log('useEntitlement Logic Validation:', diagnostics.useEntitlementValidation);
+    console.groupEnd();
+
+    return diagnostics;
+  }, [activeUserId, activePlan, usage]);
 
   // Check URL Hash and Path for admin and shared maps (#share-TOKEN, #admin, /admin)
   useEffect(() => {
@@ -1065,6 +1211,15 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       'Failed to sync new map to cloud'
     );
 
+    logActivity('map_created', {
+      title: `Created mind map "${newMap.title}"`,
+      description: `Initialized canvas layout (${layout})`,
+      targetId: newMap.id,
+      targetTitle: newMap.title,
+      targetType: 'map',
+      metadata: { layout },
+    });
+
     incrementUsage('map');
     setUsage(getStoredUsage());
     setCurrentView('editor');
@@ -1120,6 +1275,15 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       'Failed to sync AI generated map to cloud'
     );
 
+    logActivity('ai_generation', {
+      title: `Generated AI Map: "${newMap.title}"`,
+      description: `Generated ${parsedNodes.length} nodes with AI Assistant`,
+      targetId: newMap.id,
+      targetTitle: newMap.title,
+      targetType: 'map',
+      metadata: { nodesCount: parsedNodes.length, layout },
+    });
+
     recordUsage('ai');
     recordUsage('map');
     saveVersionSnapshot(newMapId, 'Initial AI Generation', parsedNodes, parsedEdges);
@@ -1172,6 +1336,14 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     recordUsage('ai');
     recordUsage('map');
     triggerCelebration();
+
+    logActivity('ai_generation', {
+      title: `Expanded branch on "${parentNode.title}"`,
+      description: `Added ${branchNodes.length} AI generated sub-topics`,
+      targetId: activeMap.id,
+      targetTitle: activeMap.title,
+      targetType: 'map',
+    });
 
     return arrangedNodes;
   };
@@ -1247,6 +1419,15 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       'Failed to sync template map to cloud'
     );
 
+    logActivity('template_used', {
+      title: `Created from Blueprint: "${template.title}"`,
+      description: template.description,
+      targetId: newMap.id,
+      targetTitle: newMap.title,
+      targetType: 'map',
+      metadata: { category: template.category },
+    });
+
     incrementUsage('map');
     setUsage(getStoredUsage());
     setCurrentView('editor');
@@ -1269,6 +1450,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Map Trash, Restore & Delete Operations
   const trashMap = (mapId: string) => {
+    const target = allMaps.find((m) => m.id === mapId);
     const nextMaps = allMaps.map((m) => (m.id === mapId ? { ...m, isTrash: true, updatedAt: Date.now() } : m));
     setAllMaps(nextMaps);
     saveStoredMaps(nextMaps, activeUserId);
@@ -1279,9 +1461,18 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         'Failed to trash map in cloud'
       );
     }
+    if (target) {
+      logActivity('map_deleted', {
+        title: `Moved map to trash: "${target.title}"`,
+        targetId: mapId,
+        targetTitle: target.title,
+        targetType: 'map',
+      });
+    }
   };
 
   const restoreMap = (mapId: string) => {
+    const target = allMaps.find((m) => m.id === mapId);
     const nextMaps = allMaps.map((m) => (m.id === mapId ? { ...m, isTrash: false, updatedAt: Date.now() } : m));
     setAllMaps(nextMaps);
     saveStoredMaps(nextMaps, activeUserId);
@@ -1292,9 +1483,18 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         'Failed to restore map in cloud'
       );
     }
+    if (target) {
+      logActivity('map_created', {
+        title: `Restored map "${target.title}" from trash`,
+        targetId: mapId,
+        targetTitle: target.title,
+        targetType: 'map',
+      });
+    }
   };
 
   const permanentDeleteMap = (mapId: string) => {
+    const target = allMaps.find((m) => m.id === mapId);
     const nextMaps = allMaps.filter((m) => m.id !== mapId);
     setAllMaps(nextMaps);
     saveStoredMaps(nextMaps, activeUserId);
@@ -1302,6 +1502,15 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       () => deleteMapFromCloud(activeUserId, mapId),
       'Failed to permanently delete map from cloud'
     );
+
+    if (target) {
+      logActivity('map_deleted', {
+        title: `Permanently deleted map "${target.title}"`,
+        targetId: mapId,
+        targetTitle: target.title,
+        targetType: 'map',
+      });
+    }
 
     if (activeMap?.id === mapId) {
       const remaining = nextMaps.filter((m) => !m.isTrash);
@@ -1327,6 +1536,12 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         () => saveMapToCloud(activeUserId, updated, getStoredNodes(mapId, activeUserId), getStoredEdges(mapId, activeUserId)),
         'Failed to toggle favorite map in cloud'
       );
+      logActivity('map_favorite', {
+        title: updated.isFavorite ? `Starred "${updated.title}"` : `Removed star from "${updated.title}"`,
+        targetId: mapId,
+        targetTitle: updated.title,
+        targetType: 'map',
+      });
     }
     if (activeMap?.id === mapId) {
       setActiveMap((prev) => (prev ? { ...prev, isFavorite: !prev.isFavorite } : null));
@@ -1477,6 +1692,14 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     persistCanvasState(arranged, nextEdges);
     pushHistory(arranged, nextEdges);
 
+    logActivity('node_created', {
+      title: `Added idea "${title}"`,
+      targetId: childId,
+      targetTitle: title,
+      targetType: 'node',
+      metadata: { mapId: currentMap.id },
+    });
+
     return childNode;
   };
 
@@ -1524,6 +1747,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const deleteNode = (nodeId: string) => {
     if (!activeMap || activeMap.rootNodeId === nodeId) return;
+    const targetNode = nodes.find((n) => n.id === nodeId);
 
     const toDelete = new Set<string>([nodeId]);
     function collectDescendants(id: string) {
@@ -1546,6 +1770,15 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setSelectedNodeIds([]);
     persistCanvasState(arranged, nextEdges);
     pushHistory(arranged, nextEdges);
+
+    if (targetNode) {
+      logActivity('node_deleted', {
+        title: `Deleted node "${targetNode.title}"`,
+        targetId: nodeId,
+        targetTitle: targetNode.title,
+        targetType: 'node',
+      });
+    }
   };
 
   const duplicateNode = (nodeId: string) => {
@@ -1671,6 +1904,15 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       () => saveTaskToCloud(activeUserId, newTask),
       'Failed to sync converted task to cloud'
     );
+
+    logActivity('task_created', {
+      title: `Converted "${node.title}" to Task`,
+      description: `Priority set to ${priority}`,
+      targetId: newTask.id,
+      targetTitle: newTask.title,
+      targetType: 'task',
+    });
+
     return newTask;
   };
 
@@ -1689,6 +1931,15 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       () => saveTaskToCloud(activeUserId, newTask),
       'Failed to create task in cloud'
     );
+
+    logActivity('task_created', {
+      title: `Created task "${newTask.title}"`,
+      targetId: newTask.id,
+      targetTitle: newTask.title,
+      targetType: 'task',
+      metadata: { priority: newTask.priority },
+    });
+
     return newTask;
   };
 
@@ -1710,6 +1961,12 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         'Failed to create task in cloud'
       );
     });
+
+    logActivity('task_created', {
+      title: `Created ${createdTasks.length} tasks batch`,
+      targetType: 'task',
+    });
+
     return createdTasks;
   };
 
@@ -1723,10 +1980,21 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         () => saveTaskToCloud(activeUserId, updated),
         'Failed to update task in cloud'
       );
+
+      if (updates.status) {
+        logActivity('task_status', {
+          title: updates.status === 'done' ? `Completed task "${updated.title}"` : `Updated status for "${updated.title}" to ${updates.status}`,
+          targetId: taskId,
+          targetTitle: updated.title,
+          targetType: 'task',
+          metadata: { status: updates.status },
+        });
+      }
     }
   };
 
   const deleteTask = (taskId: string) => {
+    const target = allTasks.find((t) => t.id === taskId);
     const next = allTasks.filter((t) => t.id !== taskId);
     setAllTasks(next);
     saveStoredTasks(next, activeUserId);
@@ -1734,6 +2002,15 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       () => deleteTaskFromCloud(activeUserId, taskId),
       'Failed to delete task from cloud'
     );
+
+    if (target) {
+      logActivity('task_status', {
+        title: `Deleted task "${target.title}"`,
+        targetId: taskId,
+        targetTitle: target.title,
+        targetType: 'task',
+      });
+    }
   };
 
   // Goal Operations
@@ -1752,6 +2029,15 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       () => saveGoalToCloud(activeUserId, newGoal),
       'Failed to create goal in cloud'
     );
+
+    logActivity('goal_created', {
+      title: `Created goal "${newGoal.title}"`,
+      description: newGoal.deadline ? `Target: ${newGoal.deadline}` : undefined,
+      targetId: newGoal.id,
+      targetTitle: newGoal.title,
+      targetType: 'goal',
+    });
+
     return newGoal;
   };
 
@@ -1765,6 +2051,16 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         () => saveGoalToCloud(activeUserId, updated),
         'Failed to update goal in cloud'
       );
+
+      if (updates.progress !== undefined) {
+        logActivity('goal_progress', {
+          title: `Updated goal progress: "${updated.title}" (${updates.progress}%)`,
+          targetId: goalId,
+          targetTitle: updated.title,
+          targetType: 'goal',
+          metadata: { progress: updates.progress },
+        });
+      }
     }
   };
 
@@ -1789,6 +2085,14 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       () => saveQuickNoteToCloud(activeUserId, created),
       'Failed to save quick note in cloud'
     );
+
+    logActivity('note_created', {
+      title: `Saved scratchpad note: "${created.title || content.slice(0, 30)}..."`,
+      targetId: created.id,
+      targetTitle: created.title,
+      targetType: 'note',
+    });
+
     return created;
   };
 
@@ -2177,6 +2481,9 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         allGoals,
         allFolders,
         quickNotes,
+        activityLogs,
+        logActivity,
+        clearActivityLogs,
         usage,
         setZoom,
         setPan,
@@ -2254,6 +2561,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         fitToScreen,
         autoArrangeMap,
         triggerCelebration,
+        logSubscriptionDiagnostics,
       }}
     >
       {children}

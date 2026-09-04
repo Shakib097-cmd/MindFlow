@@ -257,8 +257,8 @@ export const PLAN_FEATURES: Record<PlanType, FeatureKey[]> = {
 // =========================================================================
 export const PLAN_MONTHLY_CREDITS: Record<PlanType, number> = {
   free: 25,
-  pro: 100, // Matches prompt specification (e.g. 72 / 100)
-  business: 500,
+  pro: 500, // 500 monthly AI credits for Pro plan
+  business: 2000,
 };
 
 // =========================================================================

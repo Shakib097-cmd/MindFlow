@@ -34,7 +34,10 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.email == 'starcybercafe097@gmail.com'
+      );
     }
 
     // =========================================================================
@@ -136,8 +139,8 @@ service cloud.firestore {
     // 3. USAGE & QUOTA COLLECTION (/usage/{userId})
     // =========================================================================
     match /usage/{userId} {
-      allow get: if isOwner(userId);
-      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
       // Client initial creation permitted with strict validation; updates strictly guarded
       allow create: if isOwner(userId) &&
         incoming().userId == userId &&
@@ -147,15 +150,15 @@ service cloud.firestore {
         existing().userId == userId &&
         incoming().userId == userId &&
         isValidUsage(incoming());
-      allow delete: if false;
+      allow delete: if isAdmin();
     }
 
     // =========================================================================
     // 4. USER PROFILE & SUBCOLLECTIONS (/users/{userId})
     // =========================================================================
     match /users/{userId} {
-      allow get: if isOwner(userId);
-      allow list: if false;
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
       allow create: if isOwner(userId) &&
         incoming().id == userId &&
         isValidUserProfile(incoming());
@@ -163,7 +166,7 @@ service cloud.firestore {
         existing().id == userId &&
         incoming().id == userId &&
         isValidUserProfile(incoming());
-      allow delete: if false;
+      allow delete: if isAdmin();
 
       // --- User Mind Maps Subcollection ---
       match /maps/{mapId} {
@@ -306,9 +309,18 @@ service cloud.firestore {
     // 8. USER SUBSCRIPTIONS (/subscriptions/{userId})
     // =========================================================================
     match /subscriptions/{userId} {
-      allow get: if isOwner(userId);
-      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow write: if false; // Managed exclusively via server webhook / Admin SDK
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // =========================================================================
+    // 8b. CREDIT TRANSACTIONS (/credit_transactions/{txId})
+    // =========================================================================
+    match /credit_transactions/{txId} {
+      allow get, list: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
     }
 
     // =========================================================================

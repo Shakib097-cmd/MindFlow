@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import { UsageData, PlanType } from '../../types';
 import { PLAN_LIMITS, getDefaultUsageForUser, handleFirestoreError, OperationType } from '../../services/usageFirestoreService';
+import { PLAN_MONTHLY_CREDITS } from '../../services/entitlementsService';
 import {
   Zap,
   Sparkles,
@@ -59,7 +60,7 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
   onOpenSettings,
 }) => {
   const { user, profile } = useAuth();
-  const { usage: contextUsage, setIsPricingOpen, setIsSettingsOpen } = useWorkspace();
+  const { usage: contextUsage, setIsPricingOpen, setIsSettingsOpen, setIsCreditTopUpOpen } = useWorkspace();
   
   const effectiveUserId = propUserId || profile?.id || user?.uid || 'current-user';
   const effectivePlan: PlanType = profile?.plan || 'pro';
@@ -85,6 +86,13 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
             const limits = PLAN_LIMITS[effectivePlan] || PLAN_LIMITS.pro;
             const now = Date.now();
 
+            const monthly = Number(data.monthlyCredits || PLAN_MONTHLY_CREDITS[effectivePlan] || 500);
+            const topup = Number(data.topupCredits ?? (effectivePlan === 'pro' ? 100 : 0));
+            const usedCredits = Number(data.creditsUsed ?? data.aiGenerationsUsed ?? 0);
+            const balance = typeof data.creditsBalance === 'number' && data.creditsBalance > 0
+              ? data.creditsBalance
+              : Math.max(0, monthly - usedCredits) + topup;
+
             setUsageData({
               userId: effectiveUserId,
               aiGenerationsUsed: Number(data.aiGenerationsUsed ?? 0),
@@ -97,8 +105,13 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
               exportsLimit: Number(data.exportsLimit || limits.exports),
               voiceMinutesUsed: Number(data.voiceMinutesUsed ?? 0),
               voiceMinutesLimit: Number(data.voiceMinutesLimit || limits.voiceMinutes),
-              periodStart: Number(data.periodStart || now - 86400000 * 10),
-              periodEnd: Number(data.periodEnd || now + 86400000 * 20),
+              periodStart: Number(data.periodStart || Date.parse('2026-08-20T00:00:00Z')),
+              periodEnd: Number(data.periodEnd || Date.parse('2026-09-20T23:59:59Z')),
+              creditsBalance: balance,
+              monthlyCredits: monthly,
+              creditsUsed: usedCredits,
+              topupCredits: topup,
+              subscriptionStatus: (data as any)?.subscriptionStatus || 'active',
             });
           } else {
             // Fallback default for user
@@ -121,17 +134,20 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
 
   // Calculations
   const currentUsage = usageData || contextUsage || getDefaultUsageForUser(effectiveUserId, effectivePlan);
-  const used = currentUsage.aiGenerationsUsed ?? 0;
-  const limit = Math.max(1, currentUsage.aiGenerationsLimit ?? 50);
-  const percentage = Math.min(100, Math.max(0, Math.round((used / limit) * 100)));
-  const remaining = Math.max(0, limit - used);
+  const used = currentUsage.creditsUsed ?? currentUsage.aiGenerationsUsed ?? 0;
+  const monthly = currentUsage.monthlyCredits ?? 500;
+  const topup = currentUsage.topupCredits ?? 100;
+  const balance = currentUsage.creditsBalance ?? (monthly + topup - used);
+  const totalCapacity = Math.max(1, monthly + (topup > 0 ? topup : 0));
+  const percentage = Math.min(100, Math.max(0, Math.round((balance / totalCapacity) * 100)));
+  const isZeroCredits = balance <= 0;
 
   const now = Date.now();
-  const periodEnd = currentUsage.periodEnd || now + 86400000 * 30;
+  const periodEnd = currentUsage.periodEnd || Date.parse('2026-09-20T23:59:59Z');
   const daysRemaining = Math.max(1, Math.ceil((periodEnd - now) / (1000 * 60 * 60 * 24)));
 
-  const isCritical = percentage >= 90;
-  const isWarning = percentage >= 75 && percentage < 90;
+  const isCritical = isZeroCredits;
+  const isWarning = balance > 0 && balance <= 15;
 
   // Aesthetic styling mapped to urgency
   const barGradient = isCritical
@@ -144,7 +160,7 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
     ? 'bg-rose-50 text-rose-700 border-rose-200'
     : isWarning
     ? 'bg-amber-50 text-amber-700 border-amber-200'
-    : 'bg-indigo-50 text-indigo-700 border-indigo-200';
+    : 'bg-emerald-50 text-emerald-700 border-emerald-200';
 
   const handleUpgradeClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -182,8 +198,8 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
               ? 'bg-amber-50/90 border-amber-300 hover:bg-amber-100 text-amber-950 shadow-xs'
               : 'bg-slate-50 hover:bg-slate-100/90 border-slate-200/90 text-slate-800'
           }`}
-          aria-label={`AI Usage: ${used} of ${limit} generations used (${percentage}%)`}
-          title="Monthly AI Generation Quota (Firestore 'usage' collection)"
+          aria-label={`AI Credits: ${balance} of ${monthly} credits available (${percentage}%)`}
+          title="AI Credits Balance (Firestore 'usage' collection)"
         >
           {/* Status Icon */}
           <div className="flex items-center gap-1.5 shrink-0">
@@ -197,8 +213,8 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
               />
             )}
             <span className="text-[11px] font-bold tracking-tight">
-              {used}
-              <span className="text-slate-400 font-medium">/{limit}</span>
+              {balance}
+              <span className="text-slate-400 font-medium">/{monthly}</span>
             </span>
           </div>
 
@@ -233,28 +249,31 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
-                    <Sparkles className="w-4 h-4" />
+                    <Crown className="w-4 h-4" />
                   </div>
                   <div>
-                    <div className="text-xs font-bold text-slate-900">Monthly AI Generation Limit</div>
-                    <div className="text-[10px] text-slate-500 font-medium capitalize">
-                      {effectivePlan} Subscription Tier
+                    <div className="text-xs font-bold text-slate-900 uppercase">{effectivePlan} Plan</div>
+                    <div className="text-[10px] text-slate-500 font-medium">
+                      Renewal: 20 Sept 2026
                     </div>
                   </div>
                 </div>
                 <span
                   className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeStyle}`}
                 >
-                  {isCritical ? 'Limit Reached' : isWarning ? 'Near Quota' : `${percentage}% Used`}
+                  {isCritical ? 'Depleted' : isWarning ? 'Low Credits' : 'Active'}
                 </span>
               </div>
 
               {/* Progress Bar Display */}
               <div className="space-y-1.5 mb-3.5">
                 <div className="flex justify-between items-center text-xs font-bold">
-                  <span className="text-slate-700">AI Tokens / Generations</span>
+                  <span className="text-slate-700 flex items-center gap-1">
+                    <Zap className="w-3 h-3 text-indigo-600 fill-indigo-600" />
+                    AI Credits Balance
+                  </span>
                   <span className="text-slate-900 font-mono">
-                    {used} <span className="text-slate-400 font-normal">/ {limit}</span>
+                    {balance} <span className="text-slate-400 font-normal">/ {monthly}</span>
                   </span>
                 </div>
                 <div className="w-full h-2.5 bg-slate-100 rounded-full p-0.5 border border-slate-200/60 overflow-hidden">
@@ -264,8 +283,11 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
                   />
                 </div>
                 <div className="flex justify-between text-[11px] text-slate-500 pt-0.5">
-                  <span>{remaining} remaining</span>
-                  <span className="font-semibold text-indigo-600">{percentage}% consumed</span>
+                  <span>{percentage}% capacity available</span>
+                  <div className="flex items-center gap-1.5">
+                    <span>Used: {used}</span>
+                    {topup > 0 && <span className="text-indigo-600 font-bold">(+{topup} top-up)</span>}
+                  </div>
                 </div>
               </div>
 
@@ -274,19 +296,19 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
                 <div className="flex items-center justify-between text-slate-600">
                   <span className="flex items-center gap-1.5">
                     <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                    Billing Cycle Reset:
+                    Renewal:
                   </span>
                   <span className="font-semibold text-slate-800">
-                    in {daysRemaining} {daysRemaining === 1 ? 'day' : 'days'}
+                    20 Sept 2026 • Pro Entitlements
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-slate-600">
                   <span className="flex items-center gap-1.5">
                     <Database className="w-3.5 h-3.5 text-slate-400" />
-                    Firestore Source:
+                    Live Source:
                   </span>
-                  <span className="font-mono text-[10px] text-indigo-600 bg-indigo-50/80 px-1.5 py-0.5 rounded border border-indigo-100">
-                    usage/{effectiveUserId.slice(0, 10)}...
+                  <span className="font-mono text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                    Firestore Sync Active
                   </span>
                 </div>
               </div>
@@ -294,12 +316,16 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
               {/* Action Buttons */}
               <div className="flex items-center gap-2">
                 <button
-                  id="usage-meter-upgrade-btn"
-                  onClick={handleUpgradeClick}
+                  id="usage-meter-topup-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowPopover(false);
+                    setIsCreditTopUpOpen(true);
+                  }}
                   className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
                 >
-                  <Crown className="w-3.5 h-3.5 text-amber-300" />
-                  <span>Increase Limit</span>
+                  <Zap className="w-3.5 h-3.5 fill-white text-white" />
+                  <span>Top Up</span>
                 </button>
                 <button
                   id="usage-meter-settings-btn"
@@ -331,10 +357,10 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
                   : 'text-indigo-500 fill-indigo-500'
               }`}
             />
-            <span>Monthly AI Limit</span>
+            <span>AI Credits</span>
           </div>
           <span className="text-[11px] font-mono text-slate-600">
-            {used}/{limit}
+            {balance}/{monthly}
           </span>
         </div>
 
@@ -347,7 +373,7 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
 
         {showDetails && (
           <div className="flex items-center justify-between text-[10px] text-slate-500">
-            <span>{remaining} generations remaining</span>
+            <span>{balance} credits available</span>
             <span>{percentage}%</span>
           </div>
         )}
@@ -364,23 +390,23 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
             <Zap className="w-4 h-4" />
           </div>
           <div>
-            <h4 className="text-sm font-bold text-slate-900">AI Generation Usage</h4>
+            <h4 className="text-sm font-bold text-slate-900">AI Credits Balance</h4>
             <p className="text-xs text-slate-500">
               Fetched in real-time from Firestore <code className="text-[10px] bg-slate-100 px-1 py-0.5 rounded font-mono">usage</code>
             </p>
           </div>
         </div>
         <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${badgeStyle}`}>
-          {percentage}% Quota
+          {percentage}% Capacity
         </span>
       </div>
 
       <div className="space-y-2">
         <div className="flex justify-between items-baseline">
           <span className="text-2xl font-bold font-display text-slate-900">
-            {used} <span className="text-xs text-slate-400 font-normal">/ {limit} used</span>
+            {balance} <span className="text-xs text-slate-400 font-normal">/ {monthly} credits</span>
           </span>
-          <span className="text-xs text-slate-500">{remaining} remaining</span>
+          <span className="text-xs text-slate-500">Used: {used}</span>
         </div>
 
         <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">

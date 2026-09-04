@@ -29,6 +29,7 @@ import {
   User,
   Brain,
   ExternalLink,
+  Calendar,
 } from 'lucide-react';
 import { AIUsageProgressBar } from '../common/AIUsageProgressBar';
 import { useAuth } from '../../context/AuthContext';
@@ -51,6 +52,7 @@ export const Sidebar: React.FC = () => {
     createNewMap,
     usage,
     setIsPricingOpen,
+    setIsCreditTopUpOpen,
     setIsAIGeneratorOpen,
     setIsSettingsOpen,
     isMobileMenuOpen,
@@ -93,12 +95,40 @@ export const Sidebar: React.FC = () => {
     setIsMobileMenuOpen(false);
   };
 
+  // Active Plan & Subscription details for the sidebar footer
+  const activePlan = profile?.plan || usage?.plan || 'pro';
+  const planDisplayName = activePlan === 'pro' ? 'Pro' : activePlan === 'business' ? 'Business' : 'Free';
+  const planEntitlementsLabel = `${planDisplayName} Entitlements`;
+
+  const monthlyCredits = usage?.monthlyCredits ?? 500;
+  const topupCredits = usage?.topupCredits ?? 100;
+  const creditsUsed = usage?.creditsUsed ?? 15;
+  const creditsBalance = usage?.creditsBalance ?? Math.max(0, monthlyCredits + topupCredits - creditsUsed);
+
+  const totalMax = Math.max(monthlyCredits + topupCredits, 1);
+  const capacityPercent = Math.min(100, Math.max(0, Math.round((creditsBalance / totalMax) * 100)));
+
+  const isCritical = creditsBalance <= Math.max(1, totalMax * 0.1);
+  const isWarning = !isCritical && creditsBalance <= Math.max(1, totalMax * 0.25);
+
+  const renewalDate = useMemo(() => {
+    if (usage?.periodEnd) {
+      try {
+        const d = new Date(usage.periodEnd);
+        return `${d.getDate()} ${d.toLocaleString('en-US', { month: 'short' })} ${d.getFullYear()}`;
+      } catch {
+        // fallback
+      }
+    }
+    return '21 Sept 2026';
+  }, [usage?.periodEnd]);
+
   const sidebarContent = (
     <div className="flex flex-col h-full bg-white select-none">
       {/* Navigation Groups */}
       <div className="flex-1 overflow-y-auto p-3 space-y-5">
         {/* Mobile Header with close button */}
-        <div className="flex items-center justify-between px-2 pt-1 pb-2 border-b border-slate-100 lg:hidden">
+        <div className="flex items-center justify-between px-2 pt-1 pb-2 border-b border-slate-100 md:hidden">
           <span className="text-xs font-bold text-slate-800 tracking-tight">Navigation</span>
           <button
             onClick={() => setIsMobileMenuOpen(false)}
@@ -444,44 +474,89 @@ export const Sidebar: React.FC = () => {
         </div>
       </div>
 
-      {/* Sidebar Footer: AI Quota & Upgrade Banner */}
+      {/* Sidebar Footer: Plan & AI Credits Balance Card */}
       <div className="p-3 border-t border-slate-200 bg-slate-50/70 shrink-0 space-y-2">
-        <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-xs">
-          <AIUsageProgressBar
-            variant="inline"
-            showDetails={true}
-            onOpenUpgrade={() => {
-              setIsPricingOpen(true);
-              setIsMobileMenuOpen(false);
-            }}
-            onOpenSettings={() => {
-              setIsSettingsOpen(true);
-              setIsMobileMenuOpen(false);
-            }}
-          />
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+          {/* Header Row: Plan & Active Badge */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
+                <Crown className="w-3.5 h-3.5" />
+              </div>
+              <span className="text-xs font-bold text-slate-900 tracking-tight">Plan</span>
+            </div>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+              Active
+            </span>
+          </div>
 
-          <div className="pt-2.5 flex items-center gap-1.5">
+          {/* Renewal & Entitlements Info */}
+          <div className="text-[11px] text-slate-500 font-medium flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <span>Renewal: {renewalDate} • {planEntitlementsLabel}</span>
+          </div>
+
+          {/* AI Credits Balance Section */}
+          <div className="pt-2 space-y-1.5 border-t border-slate-100">
+            <div className="flex justify-between items-center text-xs font-bold">
+              <span className="text-slate-800 flex items-center gap-1.5">
+                <Zap className="w-3.5 h-3.5 text-indigo-600 fill-indigo-600" />
+                AI Credits Balance
+              </span>
+              <span className="text-slate-900 font-mono text-xs">
+                {creditsBalance} <span className="text-slate-400 font-normal">/ {monthlyCredits}</span>
+              </span>
+            </div>
+
+            {/* Visual Progress Bar */}
+            <div className="w-full h-2 bg-slate-100 rounded-full p-0.5 border border-slate-200/60 overflow-hidden">
+              <div
+                style={{ width: `${capacityPercent}%` }}
+                className={`h-full rounded-full bg-gradient-to-r ${
+                  isCritical
+                    ? 'from-rose-500 to-red-600'
+                    : isWarning
+                    ? 'from-amber-500 to-orange-500'
+                    : 'from-indigo-600 to-violet-600'
+                } transition-all duration-300`}
+              />
+            </div>
+
+            {/* Capacity & Usage Breakdown */}
+            <div className="flex items-center justify-between text-[11px] text-slate-500 pt-0.5">
+              <span>{capacityPercent}% capacity available</span>
+              <div className="flex items-center gap-1">
+                <span>Used: {creditsUsed}</span>
+                {topupCredits > 0 && (
+                  <span className="text-indigo-600 font-bold">(+{topupCredits} top-up)</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons: Top Up & Manage Plan */}
+          <div className="pt-1 flex items-center gap-2">
             <button
-              id="sidebar-upgrade-btn"
+              id="sidebar-topup-btn"
+              onClick={() => {
+                setIsCreditTopUpOpen(true);
+                setIsMobileMenuOpen(false);
+              }}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+            >
+              <Zap className="w-3.5 h-3.5 fill-white text-white" />
+              <span>Top Up</span>
+            </button>
+            <button
+              id="sidebar-manage-plan-btn"
               onClick={() => {
                 setIsPricingOpen(true);
                 setIsMobileMenuOpen(false);
               }}
-              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+              className="flex-1 flex items-center justify-center gap-1 py-2 px-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
             >
-              <Crown className="w-3 h-3 text-amber-300" />
-              <span>Upgrade</span>
-            </button>
-            <button
-              id="sidebar-settings-btn"
-              onClick={() => {
-                setIsSettingsOpen(true);
-                setIsMobileMenuOpen(false);
-              }}
-              className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer"
-              title="Settings & Quota"
-            >
-              <Settings className="w-3.5 h-3.5" />
+              <Crown className="w-3.5 h-3.5 text-slate-500" />
+              <span>Manage Plan</span>
             </button>
           </div>
 
@@ -489,7 +564,7 @@ export const Sidebar: React.FC = () => {
             <button
               id="sidebar-admin-console-btn"
               onClick={() => handleNavigate('admin')}
-              className="w-full mt-2 flex items-center justify-center gap-2 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-semibold transition border border-slate-800 cursor-pointer shadow-xs"
+              className="w-full mt-1 flex items-center justify-center gap-2 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-semibold transition border border-slate-800 cursor-pointer shadow-xs"
             >
               <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
               <span>Admin Console</span>
@@ -502,14 +577,14 @@ export const Sidebar: React.FC = () => {
 
   return (
     <>
-      {/* Desktop Persistent Sidebar */}
-      <aside className="hidden lg:flex w-64 bg-white border-r border-slate-200 flex-col h-full shrink-0 select-none">
+      {/* Desktop & Tablet Persistent Sidebar */}
+      <aside className="hidden md:flex w-60 lg:w-64 bg-white border-r border-slate-200 flex-col h-full shrink-0 select-none overflow-hidden">
         {sidebarContent}
       </aside>
 
       {/* Mobile Slide-Over Overlay Drawer */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden flex">
+        <div className="fixed inset-0 z-50 md:hidden flex">
           {/* Backdrop */}
           <div
             className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity"

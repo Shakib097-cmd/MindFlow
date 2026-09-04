@@ -83,14 +83,14 @@ export const PLAN_LIMITS: Record<
     voiceMinutes: 15,
   },
   pro: {
-    aiGenerations: 100,
+    aiGenerations: 500,
     maps: 50,
     storageMb: 500,
     exports: 200,
     voiceMinutes: 120,
   },
   business: {
-    aiGenerations: 500,
+    aiGenerations: 2000,
     maps: 500,
     storageMb: 2500,
     exports: 1000,
@@ -99,31 +99,30 @@ export const PLAN_LIMITS: Record<
 };
 
 export function getDefaultUsageForUser(userId: string, plan: PlanType = 'pro'): UsageData {
-  const now = Date.now();
   const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.pro;
-  const monthly = PLAN_MONTHLY_CREDITS[plan] || 100;
-  // Standard demo/initial balance: 72/100 on Pro, 25/25 on Free, 500/500 on Business
-  const used = plan === 'pro' ? 28 : 0;
-  const balance = Math.max(0, monthly - used);
+  const monthly = PLAN_MONTHLY_CREDITS[plan] || 500;
+  const topup = plan === 'pro' ? 100 : 0;
+  const used = 0;
+  const balance = monthly + topup - used;
 
   return {
     userId,
     aiGenerationsUsed: used,
     aiGenerationsLimit: limits.aiGenerations,
-    mapsCreated: 2,
+    mapsCreated: 0,
     mapsLimit: limits.maps,
-    storageMbUsed: 3.8,
+    storageMbUsed: 0,
     storageMbLimit: limits.storageMb,
-    exportsUsed: 5,
+    exportsUsed: 0,
     exportsLimit: limits.exports,
-    voiceMinutesUsed: 6,
+    voiceMinutesUsed: 0,
     voiceMinutesLimit: limits.voiceMinutes,
-    periodStart: now - 86400000 * 12, // 12 days ago in monthly billing cycle
-    periodEnd: now + 86400000 * 18, // 18 days remaining
+    periodStart: Date.parse('2026-08-20T00:00:00Z'),
+    periodEnd: Date.parse('2026-09-20T23:59:59Z'),
     creditsBalance: balance,
     monthlyCredits: monthly,
     creditsUsed: used,
-    topupCredits: 0,
+    topupCredits: topup,
     subscriptionStatus: 'active',
   };
 }
@@ -149,16 +148,16 @@ export function subscribeToFirestoreUsage(
         if (snapshot.exists()) {
           const data = snapshot.data() as Partial<UsageData>;
           const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.pro;
-          const monthly = PLAN_MONTHLY_CREDITS[plan] || 100;
+          const monthly = Number(data.monthlyCredits || PLAN_MONTHLY_CREDITS[plan] || 500);
           const now = Date.now();
 
           // Check if monthly cycle has expired
-          let periodStart = data.periodStart || now;
-          let periodEnd = data.periodEnd || now + 86400000 * 30;
-          let aiUsed = Number(data.aiGenerationsUsed ?? (plan === 'pro' ? 28 : 0));
+          let periodStart = data.periodStart || Date.parse('2026-08-20T00:00:00Z');
+          let periodEnd = data.periodEnd || Date.parse('2026-09-20T23:59:59Z');
+          let aiUsed = Number(data.aiGenerationsUsed ?? 0);
           let creditsUsed = Number(data.creditsUsed ?? aiUsed);
-          let topup = Number(data.topupCredits ?? 0);
-          let balance = typeof data.creditsBalance === 'number'
+          let topup = Number(data.topupCredits ?? (plan === 'pro' ? 100 : 0));
+          let balance = typeof data.creditsBalance === 'number' && data.creditsBalance > 0
             ? data.creditsBalance
             : Math.max(0, monthly - creditsUsed) + topup;
 
@@ -208,6 +207,18 @@ export function subscribeToFirestoreUsage(
             topupCredits: topup,
             subscriptionStatus: (data as any)?.subscriptionStatus || 'active',
           };
+
+          // Diagnostic real-time log for subscription tracking
+          console.log('🔄 [Firestore Realtime] Subscription status & usage snapshot received:', {
+            userId,
+            subscriptionStatus: parsedUsage.subscriptionStatus,
+            plan,
+            creditsBalance: parsedUsage.creditsBalance,
+            creditsUsed: parsedUsage.creditsUsed,
+            monthlyCredits: parsedUsage.monthlyCredits,
+            topupCredits: parsedUsage.topupCredits,
+            updatedAt: (data as any)?.updatedAt,
+          });
 
           localStorage.setItem('mindflow_usage_v1', JSON.stringify(parsedUsage));
           onUpdate(parsedUsage);

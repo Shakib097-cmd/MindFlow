@@ -390,6 +390,46 @@ export interface QuickNote {
 }
 
 // =========================================================================
+// ACTIVITY LOG & EVENT AUDIT TYPES
+// =========================================================================
+
+export type ActivityType =
+  | 'map_created'
+  | 'map_updated'
+  | 'map_deleted'
+  | 'map_favorite'
+  | 'node_added'
+  | 'node_created'
+  | 'node_updated'
+  | 'node_deleted'
+  | 'task_created'
+  | 'task_status'
+  | 'task_status_changed'
+  | 'task_completed'
+  | 'task_deleted'
+  | 'task_converted'
+  | 'goal_created'
+  | 'goal_updated'
+  | 'goal_progress'
+  | 'quicknote_created'
+  | 'note_created'
+  | 'ai_generation'
+  | 'template_used';
+
+export interface ActivityLogItem {
+  id: string;
+  userId?: string;
+  type: ActivityType;
+  title: string;
+  description?: string;
+  targetId?: string;
+  targetTitle?: string;
+  targetType: 'map' | 'node' | 'task' | 'goal' | 'note' | 'ai';
+  timestamp: number;
+  metadata?: Record<string, any>;
+}
+
+// =========================================================================
 // ADMIN PANEL TYPES & DATA SCHEMAS
 // =========================================================================
 

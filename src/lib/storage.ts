@@ -11,6 +11,7 @@ import {
   UsageData,
   UserProfile,
   QuickNote,
+  ActivityLogItem,
 } from '../types';
 
 const MAPS_KEY = 'mindflow_maps_v1';
@@ -24,6 +25,7 @@ const COMMENTS_KEY = 'mindflow_comments_v1';
 const NOTIFICATIONS_KEY = 'mindflow_notifications_v1';
 const USAGE_KEY = 'mindflow_usage_v1';
 const QUICK_NOTES_KEY = 'mindflow_quick_notes_v1';
+const ACTIVITIES_KEY = 'mindflow_activities_v1';
 
 const SAMPLE_QUICK_NOTES: QuickNote[] = [];
 
@@ -63,17 +65,22 @@ if (typeof window !== 'undefined') {
 const INITIAL_USAGE: UsageData = {
   userId: 'current-user',
   aiGenerationsUsed: 0,
-  aiGenerationsLimit: 50,
+  aiGenerationsLimit: 500,
   mapsCreated: 0,
-  mapsLimit: 10,
+  mapsLimit: 50,
   storageMbUsed: 0,
-  storageMbLimit: 50,
+  storageMbLimit: 500,
   exportsUsed: 0,
-  exportsLimit: 25,
+  exportsLimit: 200,
   voiceMinutesUsed: 0,
-  voiceMinutesLimit: 30,
-  periodStart: Date.now(),
-  periodEnd: Date.now() + 86400000 * 30,
+  voiceMinutesLimit: 120,
+  periodStart: Date.parse('2026-08-20T00:00:00Z'),
+  periodEnd: Date.parse('2026-09-20T23:59:59Z'),
+  creditsBalance: 600,
+  monthlyCredits: 500,
+  creditsUsed: 0,
+  topupCredits: 100,
+  subscriptionStatus: 'active',
 };
 
 // Storage Helpers
@@ -271,7 +278,20 @@ export function getStoredUsage(): UsageData {
       localStorage.setItem(USAGE_KEY, JSON.stringify(INITIAL_USAGE));
       return INITIAL_USAGE;
     }
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    const upgraded: UsageData = {
+      ...INITIAL_USAGE,
+      ...parsed,
+      aiGenerationsLimit: parsed.aiGenerationsLimit && parsed.aiGenerationsLimit >= 500 ? parsed.aiGenerationsLimit : 500,
+      monthlyCredits: parsed.monthlyCredits && parsed.monthlyCredits >= 500 ? parsed.monthlyCredits : 500,
+      topupCredits: parsed.topupCredits !== undefined ? parsed.topupCredits : 100,
+      creditsUsed: parsed.creditsUsed ?? parsed.aiGenerationsUsed ?? 0,
+      creditsBalance: parsed.creditsBalance !== undefined && parsed.creditsBalance > 0 ? parsed.creditsBalance : 600,
+      subscriptionStatus: parsed.subscriptionStatus || 'active',
+      periodStart: parsed.periodStart || Date.parse('2026-08-20T00:00:00Z'),
+      periodEnd: parsed.periodEnd || Date.parse('2026-09-20T23:59:59Z'),
+    };
+    return upgraded;
   } catch {
     return INITIAL_USAGE;
   }
@@ -393,3 +413,87 @@ export function deleteStoredQuickNote(id: string, userId?: string): QuickNote[] 
   saveStoredQuickNotes(updated, userId);
   return updated;
 }
+
+// =========================================================================
+// ACTIVITY LOG STORAGE HELPERS
+// =========================================================================
+
+const INITIAL_ACTIVITIES: ActivityLogItem[] = [
+  {
+    id: 'act-init-1',
+    type: 'template_used',
+    title: 'Workspace Initialized',
+    description: 'Welcome to MindFlow AI canvas and productivity suite',
+    targetType: 'ai',
+    timestamp: Date.now() - 1000 * 60 * 15,
+  },
+  {
+    id: 'act-init-2',
+    type: 'map_created',
+    title: 'Loaded Starter Blueprint',
+    description: 'Project Roadmap & Strategy mind map ready for editing',
+    targetType: 'map',
+    targetTitle: 'Project Roadmap & Strategy',
+    timestamp: Date.now() - 1000 * 60 * 8,
+  },
+  {
+    id: 'act-init-3',
+    type: 'task_created',
+    title: 'Initialized Action Kanban',
+    description: 'Tasks synced with active mind map nodes',
+    targetType: 'task',
+    targetTitle: 'Product Launch Sprint',
+    timestamp: Date.now() - 1000 * 60 * 2,
+  },
+];
+
+export function getStoredActivities(userId?: string): ActivityLogItem[] {
+  try {
+    const key = getPrefixKey(ACTIVITIES_KEY, userId);
+    const raw = localStorage.getItem(key);
+    if (!raw) {
+      return INITIAL_ACTIVITIES;
+    }
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      return INITIAL_ACTIVITIES;
+    }
+    return parsed;
+  } catch {
+    return INITIAL_ACTIVITIES;
+  }
+}
+
+export function saveStoredActivities(activities: ActivityLogItem[], userId?: string) {
+  try {
+    const key = getPrefixKey(ACTIVITIES_KEY, userId);
+    // Keep the most recent 100 activities
+    const trimmed = activities.slice(0, 100);
+    localStorage.setItem(key, JSON.stringify(trimmed));
+  } catch (e) {
+    console.warn('Failed to save activities locally:', e);
+  }
+}
+
+export function addStoredActivity(
+  activity: Omit<ActivityLogItem, 'id' | 'timestamp'>,
+  userId?: string
+): ActivityLogItem {
+  const existing = getStoredActivities(userId);
+  const newActivity: ActivityLogItem = {
+    ...activity,
+    id: 'act-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now().toString(36),
+    userId: userId && userId !== 'demo-user' ? userId : undefined,
+    timestamp: Date.now(),
+  };
+
+  const updated = [newActivity, ...existing];
+  saveStoredActivities(updated, userId);
+  return newActivity;
+}
+
+export function clearStoredActivities(userId?: string) {
+  const key = getPrefixKey(ACTIVITIES_KEY, userId);
+  localStorage.setItem(key, JSON.stringify([]));
+}
+

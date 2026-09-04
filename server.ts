@@ -1522,6 +1522,20 @@ app.get('/api/entitlements', (req: Request, res: Response) => {
   });
 });
 
+// User-specific Quota & Entitlement state
+app.get('/api/billing/quota', (req: Request, res: Response) => {
+  const userId = (req.query.userId as string) || (req.headers['x-user-id'] as string) || 'guest-user';
+  const requestedPlan = ((req.query.plan as string) || (req.headers['x-user-plan'] as string) || 'pro') as 'free' | 'pro' | 'business';
+  const quota = getUserQuota(userId, requestedPlan);
+  res.json({
+    success: true,
+    quota,
+    entitlements: SERVER_PLAN_FEATURES[quota.plan] || SERVER_PLAN_FEATURES.free,
+    costs: FEATURE_CREDIT_COSTS,
+    serverTimestamp: Date.now(),
+  });
+});
+
 // Webhook receiver
 app.post('/api/billing/webhook', (req: Request, res: Response) => {
   console.log('Stripe Webhook Event Received:', req.body?.type);

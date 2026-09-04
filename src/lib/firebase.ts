@@ -7,10 +7,17 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
+  getIdTokenResult,
+  getIdToken,
+  reload,
   type User as FirebaseUser,
+  type IdTokenResult,
 } from 'firebase/auth';
 import {
   getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   collection,
   doc,
   setDoc,
@@ -43,8 +50,15 @@ export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
-// Get Firestore with database ID if configured
-export const db = getFirestore(app, firebaseConfigData.firestoreDatabaseId || undefined);
+// Get Firestore safely
+let firestoreInstance;
+try {
+  firestoreInstance = getFirestore(app, firebaseConfigData.firestoreDatabaseId || undefined);
+} catch (e) {
+  firestoreInstance = getFirestore(app);
+}
+
+export const db = firestoreInstance;
 
 export {
   signInWithPopup,
@@ -52,6 +66,9 @@ export {
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
+  getIdTokenResult,
+  getIdToken,
+  reload,
   collection,
   doc,
   setDoc,
@@ -68,4 +85,4 @@ export {
   limit,
 };
 
-export type { FirebaseUser };
+export type { FirebaseUser, IdTokenResult };

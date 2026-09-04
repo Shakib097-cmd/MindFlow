@@ -6,6 +6,7 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize2,
+  Minimize2,
   RotateCcw,
   Undo2,
   Redo2,
@@ -19,6 +20,10 @@ import {
   Compass,
   FileUp,
   Workflow,
+  Grid,
+  Palette,
+  Share2,
+  Crosshair,
 } from 'lucide-react';
 import { DocumentIngestModal } from './DocumentIngestModal';
 
@@ -65,11 +70,61 @@ export const MindMapCanvas: React.FC = () => {
     setIsAIGeneratorOpen,
     setIsMultimodalOpen,
     setIsAIAssistantOpen,
+    setIsExportShareOpen,
   } = useWorkspace();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [isPanning, setIsPanning] = useState(false);
   const [startPanPos, setStartPanPos] = useState({ x: 0, y: 0 });
+
+  // Fullscreen and Texture State
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [canvasTexture, setCanvasTexture] = useState<'dots' | 'grid' | 'blank' | 'dark'>('dots');
+  const [showTextureMenu, setShowTextureMenu] = useState(false);
+
+  const toggleFullscreen = useCallback(() => {
+    if (!isFullscreen) {
+      if (containerRef.current?.requestFullscreen) {
+        containerRef.current.requestFullscreen().catch(() => {});
+      }
+      setIsFullscreen(true);
+    } else {
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
+      setIsFullscreen(false);
+    }
+  }, [isFullscreen]);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  const centerOnRoot = useCallback(() => {
+    const rootId = activeMap?.rootNodeId || nodes.find((n) => !n.parentId)?.id;
+    if (rootId) {
+      const rootNode = nodes.find((n) => n.id === rootId);
+      if (rootNode && containerRef.current) {
+        const cw = containerRef.current.clientWidth;
+        const ch = containerRef.current.clientHeight;
+        setPan({
+          x: cw / 2 - (rootNode.x + rootNode.width / 2),
+          y: ch / 2 - (rootNode.y + rootNode.height / 2),
+        });
+        setZoom(1);
+        setLayoutNotice('Centered on root idea');
+        setTimeout(() => setLayoutNotice(null), 2000);
+      }
+    }
+  }, [activeMap?.rootNodeId, nodes, setPan, setZoom]);
 
   // Dragging individual node
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
@@ -252,7 +307,42 @@ export const MindMapCanvas: React.FC = () => {
     handleAutoLayout,
   ]);
 
-  // Zoom with wheel
+  // Non-passive event listeners for flawless canvas pan/zoom without browser scrolling conflict
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const preventScrollWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (e.ctrlKey || e.metaKey) {
+        const zoomFactor = e.deltaY > 0 ? 0.92 : 1.08;
+        setZoom((prev) => Math.min(Math.max(prev * zoomFactor, 0.25), 3));
+      } else {
+        setPan((prev) => ({
+          x: prev.x - e.deltaX,
+          y: prev.y - e.deltaY,
+        }));
+      }
+    };
+
+    const preventDefaultTouch = (e: TouchEvent) => {
+      if (e.target === el || (e.target as HTMLElement)?.id === 'canvas-svg-layer') {
+        e.preventDefault();
+      }
+    };
+
+    el.addEventListener('wheel', preventScrollWheel, { passive: false });
+    el.addEventListener('touchstart', preventDefaultTouch, { passive: false });
+    el.addEventListener('touchmove', preventDefaultTouch, { passive: false });
+
+    return () => {
+      el.removeEventListener('wheel', preventScrollWheel);
+      el.removeEventListener('touchstart', preventDefaultTouch);
+      el.removeEventListener('touchmove', preventDefaultTouch);
+    };
+  }, [setZoom, setPan]);
+
+  // Zoom with wheel (React fallback)
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
     if (e.ctrlKey || e.metaKey) {
@@ -517,7 +607,17 @@ export const MindMapCanvas: React.FC = () => {
     <div
       ref={containerRef}
       id="mindmap-canvas-container"
-      className="relative w-full h-full overflow-hidden bg-slate-50 bg-canvas-dots cursor-crosshair select-none touch-none"
+      className={`relative w-full h-full overflow-hidden ${
+        canvasTexture === 'dark'
+          ? 'bg-canvas-dark text-white'
+          : canvasTexture === 'grid'
+          ? 'bg-canvas-grid'
+          : canvasTexture === 'blank'
+          ? 'bg-canvas-blank'
+          : 'bg-slate-50 bg-canvas-dots'
+      } cursor-crosshair select-none touch-none ${
+        isFullscreen ? 'fixed inset-0 z-[100] w-screen h-screen bg-slate-900/95' : ''
+      }`}
       onWheel={handleWheel}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
@@ -532,6 +632,18 @@ export const MindMapCanvas: React.FC = () => {
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
+      {/* Fullscreen Exit Floating Indicator */}
+      {isFullscreen && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-4 duration-200 pointer-events-auto">
+          <button
+            onClick={toggleFullscreen}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-full shadow-2xl border border-slate-700 text-xs font-bold hover:bg-slate-800 transition-all cursor-pointer"
+          >
+            <Minimize2 className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Exit Fullscreen (Press ESC or F)</span>
+          </button>
+        </div>
+      )}
       {/* Top Floating Control Bar / Header */}
       <div className="absolute top-3 sm:top-6 left-3 sm:left-6 z-40 flex flex-col gap-1.5 max-w-[calc(100vw-130px)] sm:max-w-md pointer-events-none">
         <div className="flex flex-col gap-0.5 pointer-events-auto bg-white/80 backdrop-blur-xs p-2 sm:p-0 rounded-xl sm:bg-transparent border sm:border-0 border-slate-200/80 shadow-xs sm:shadow-none">
@@ -675,6 +787,67 @@ export const MindMapCanvas: React.FC = () => {
           )}
         </div>
 
+        {/* Fullscreen Toggle Button */}
+        <button
+          id="canvas-fullscreen-btn"
+          onClick={toggleFullscreen}
+          className="p-1.5 sm:p-2 rounded-xl bg-white/90 backdrop-blur-md border border-slate-200 text-slate-700 hover:text-indigo-600 shadow-xs transition-colors cursor-pointer"
+          title={isFullscreen ? 'Exit Fullscreen (F / Esc)' : 'Full Screen Canvas (F)'}
+        >
+          {isFullscreen ? <Minimize2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Maximize2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+        </button>
+
+        {/* Canvas Texture Switcher */}
+        <div className="relative">
+          <button
+            id="canvas-texture-btn"
+            onClick={() => setShowTextureMenu(!showTextureMenu)}
+            className="p-1.5 sm:p-2 rounded-xl bg-white/90 backdrop-blur-md border border-slate-200 text-slate-700 hover:text-indigo-600 shadow-xs transition-colors cursor-pointer"
+            title="Switch Canvas Background Texture"
+          >
+            <Grid className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          </button>
+
+          {showTextureMenu && (
+            <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 w-40 z-50">
+              <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                Background
+              </div>
+              {[
+                { id: 'dots', label: 'Dot Grid', icon: '⚪' },
+                { id: 'grid', label: 'Grid Lines', icon: '📐' },
+                { id: 'blank', label: 'Clean Blank', icon: '⬜' },
+                { id: 'dark', label: 'Dark Studio', icon: '🌙' },
+              ].map((tex) => (
+                <button
+                  key={tex.id}
+                  onClick={() => {
+                    setCanvasTexture(tex.id as any);
+                    setShowTextureMenu(false);
+                  }}
+                  className={`w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-slate-50 transition-colors cursor-pointer ${
+                    canvasTexture === tex.id ? 'font-bold text-indigo-600 bg-indigo-50/60' : 'text-slate-700'
+                  }`}
+                >
+                  <span>{tex.icon}</span>
+                  <span>{tex.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Quick Export Trigger */}
+        <button
+          id="canvas-export-trigger-btn"
+          onClick={() => setIsExportShareOpen(true)}
+          className="p-1.5 sm:p-2 rounded-xl bg-white/90 backdrop-blur-md border border-slate-200 text-slate-700 hover:text-indigo-600 shadow-xs transition-colors cursor-pointer hidden xs:flex items-center gap-1 text-xs font-semibold px-2.5"
+          title="Export & Share Map"
+        >
+          <Share2 className="w-3.5 h-3.5 text-indigo-600" />
+          <span className="hidden md:inline">Export</span>
+        </button>
+
         {/* AI Generator Button */}
         <button
           id="canvas-ai-gen-btn"
@@ -761,6 +934,16 @@ export const MindMapCanvas: React.FC = () => {
         >
           <Maximize2 className="w-3.5 h-3.5 text-slate-500" />
           <span className="hidden xs:inline">Fit to Screen</span>
+        </button>
+
+        <button
+          id="center-root-btn"
+          onClick={centerOnRoot}
+          className="p-1.5 sm:px-3 sm:py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 transition-colors flex items-center gap-1.5 cursor-pointer"
+          title="Center on Root Idea"
+        >
+          <Crosshair className="w-3.5 h-3.5 text-indigo-600" />
+          <span className="hidden md:inline">Center Root</span>
         </button>
 
         <button

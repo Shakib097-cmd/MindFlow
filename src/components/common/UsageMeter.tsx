@@ -1,3 +1,4 @@
+import { UNLIMITED_USAGE } from '../../lib/config';
 import React, { useState, useEffect } from 'react';
 import { db, doc, onSnapshot } from '../../lib/firebase';
 import { useAuth } from '../../context/AuthContext';
@@ -131,6 +132,9 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
       return () => {};
     }
   }, [effectiveUserId, effectivePlan]);
+
+  const isAdmin = profile?.email?.trim().toLowerCase() === 'starcybercafe097@gmail.com';
+  if (UNLIMITED_USAGE && !isAdmin) return null;
 
   // Calculations
   const currentUsage = usageData || contextUsage || getDefaultUsageForUser(effectiveUserId, effectivePlan);

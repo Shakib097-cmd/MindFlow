@@ -34,6 +34,7 @@ import {
 import { AIUsageProgressBar } from '../common/AIUsageProgressBar';
 import { useAuth } from '../../context/AuthContext';
 import { useEntitlement } from '../../hooks/useEntitlement';
+import { SHOW_PLAN_UI } from '../../lib/config';
 
 export const Sidebar: React.FC = () => {
   const { user, profile } = useAuth();
@@ -475,8 +476,9 @@ export const Sidebar: React.FC = () => {
       </div>
 
       {/* Sidebar Footer: Plan & AI Credits Balance Card */}
-      <div className="p-3 border-t border-slate-200 bg-slate-50/70 shrink-0 space-y-2">
-        <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+      {(SHOW_PLAN_UI || isAdmin) && (
+        <div className="p-3 border-t border-slate-200 bg-slate-50/70 shrink-0 space-y-2">
+          <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
           {/* Header Row: Plan & Active Badge */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -572,6 +574,7 @@ export const Sidebar: React.FC = () => {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 

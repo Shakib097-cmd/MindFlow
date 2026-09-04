@@ -1623,9 +1623,86 @@ interface AuthenticatedAdminRequest extends Request {
 function verifyAdminToken(req: AuthenticatedAdminRequest, res: Response, next: NextFunction) {
   const userEmail = (req.headers['x-user-email'] as string) || '';
   const userId = (req.headers['x-user-id'] as string) || '';
+  const authHeader = req.headers['authorization'] as string;
+  let tokenEmail = '';
+  let hasAdminClaim = false;
+  let tokenValid = false;
 
-  // Strictly enforce Single Master Admin: only starcybercafe097@gmail.com
-  if (userEmail.trim().toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase()) {
+  if (authHeader) {
+    if (!authHeader.startsWith('Bearer ')) {
+      console.warn(`[AdminAuth] Invalid Authorization header format for request ${req.method} ${req.originalUrl}`);
+      return res.status(401).json({
+        code: 'INVALID_AUTH_HEADER',
+        message: 'Authorization header must start with Bearer.',
+        retryable: false,
+      });
+    }
+
+    const token = authHeader.substring(7);
+    try {
+      const parts = token.split('.');
+      if (parts.length === 3) {
+        const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+        tokenEmail = payload.email || '';
+        tokenValid = true;
+        hasAdminClaim = Boolean(
+          payload.admin === true ||
+          payload.role === 'admin' ||
+          payload.claims?.admin === true ||
+          payload.isAdmin === true
+        );
+      } else {
+        console.warn(`[AdminAuth] Malformed JWT token structure for request ${req.method} ${req.originalUrl}`);
+        return res.status(401).json({
+          code: 'INVALID_TOKEN_FORMAT',
+          message: 'Provided authentication token is malformed.',
+          retryable: false,
+        });
+      }
+    } catch (e) {
+      console.error(`[AdminAuth] Failed to parse JWT token payload for request ${req.method} ${req.originalUrl}:`, e);
+      return res.status(401).json({
+        code: 'TOKEN_PARSE_ERROR',
+        message: 'Failed to parse authentication token.',
+        retryable: false,
+      });
+    }
+  } else {
+    // If no auth header provided at all
+    console.warn(`[AdminAuth] Missing Authorization header for admin request ${req.method} ${req.originalUrl}`);
+  }
+
+  const effectiveEmail = (tokenEmail || userEmail || '').trim().toLowerCase();
+
+  // If unauthenticated / missing identification
+  if (!effectiveEmail && !userEmail) {
+    recordSecurityEvent(
+      'UNAUTHORIZED_ACCESS',
+      'medium',
+      `Unauthenticated attempt to access Admin API ${req.method} ${req.originalUrl}`,
+      userId,
+      req.ip
+    );
+    console.warn(`[AdminAuth] Unauthenticated request rejected with 401 for ${req.method} ${req.originalUrl}`);
+    return res.status(401).json({
+      code: 'AUTHENTICATION_REQUIRED',
+      message: 'Authentication token or header is missing or invalid.',
+      retryable: false,
+    });
+  }
+
+  const isWhitelisted =
+    effectiveEmail === SUPER_ADMIN_EMAIL.toLowerCase() ||
+    userEmail.trim().toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase() ||
+    tokenEmail.trim().toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
+
+  console.info(
+    `[AdminAuthAudit] Evaluating admin access -> Email: ${effectiveEmail || userEmail}, HasAdminClaim: ${hasAdminClaim}, IsWhitelisted: ${isWhitelisted}`
+  );
+
+  // Strictly enforce Single Master Admin
+  if (isWhitelisted) {
+    console.info(`[AdminAuth] Admin authorization successful for whitelisted user: ${effectiveEmail || userEmail}`);
     req.admin = {
       id: userId || 'admin-system',
       email: SUPER_ADMIN_EMAIL,
@@ -1634,13 +1711,27 @@ function verifyAdminToken(req: AuthenticatedAdminRequest, res: Response, next: N
     return next();
   }
 
+  // Specifically check and log whether user lacks 'admin' claim and/or is missing from whitelist
+  let failureReason = '';
+  if (!hasAdminClaim) {
+    failureReason = `user lacks 'admin' claim`;
+  }
+  if (!isWhitelisted) {
+    failureReason = failureReason
+      ? `${failureReason} and is missing from the admin whitelist collection`
+      : `user is missing from the admin whitelist collection`;
+  }
+
   recordSecurityEvent(
     'UNAUTHORIZED_ACCESS',
     'high',
-    `Unauthorized attempt to access Admin API ${req.method} ${req.originalUrl} from email: ${userEmail || 'anonymous'}`,
+    `Admin API access denied (${failureReason}) on ${req.method} ${req.originalUrl} for email: ${effectiveEmail || userEmail}`,
     userId,
     req.ip
   );
+
+  console.warn(`[SecurityAudit] Admin authorization failed (403 Forbidden): ${failureReason}. User: ${effectiveEmail || userEmail}`);
+
   return res.status(403).json({
     code: 'ADMIN_ACCESS_DENIED',
     message: `Access denied. Only authorized administrator (${SUPER_ADMIN_EMAIL}) can access this administrative resource.`,

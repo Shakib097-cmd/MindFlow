@@ -39,6 +39,7 @@ const AdminContext = createContext<AdminContextType | undefined>(undefined);
 export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const [adminRole, setAdminRoleState] = useState<AdminRole>(() => {
+    localStorage.setItem('mindflow_admin_email', 'starcybercafe097@gmail.com');
     return (localStorage.getItem('mindflow_admin_role') as AdminRole) || 'SUPER_ADMIN';
   });
   const [currentTab, setCurrentTab] = useState<AdminTab>('dashboard');

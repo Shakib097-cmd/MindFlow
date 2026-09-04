@@ -2,11 +2,52 @@ import React from 'react';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import { useAuth } from '../../context/AuthContext';
 import { PlanType } from '../../types';
+import { UNLIMITED_USAGE } from '../../config/usageConfig';
 import { Crown, Check, Zap, Sparkles, X, Shield, Star } from 'lucide-react';
 
 export const PricingModal: React.FC = () => {
   const { isPricingOpen, setIsPricingOpen, triggerCelebration } = useWorkspace();
   const { profile, updatePlan } = useAuth();
+
+  const isAdmin =
+    profile?.email?.trim().toLowerCase() === 'starcybercafe097@gmail.com';
+
+  if (UNLIMITED_USAGE && !isAdmin) {
+    if (!isPricingOpen) return null;
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-8 shadow-2xl border border-slate-200/80 dark:border-slate-800 text-center space-y-6 relative">
+          <button
+            onClick={() => setIsPricingOpen(false)}
+            className="absolute top-5 right-5 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 flex items-center justify-center text-slate-500 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+          
+          <div className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto shadow-inner">
+            <Sparkles className="w-8 h-8" />
+          </div>
+
+          <div className="space-y-2">
+            <span className="px-3 py-1 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold text-xs rounded-full uppercase tracking-wider">
+              Coming Soon
+            </span>
+            <h2 className="text-xl font-black text-slate-900 dark:text-white">Subscription & Pricing Plans</h2>
+            <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+              We are currently fine-tuning our flexible creator plans and billing tiers. For now, you have <strong>unlimited free access</strong> to all Pro features, AI capabilities, and mind-mapping tools with zero restrictions!
+            </p>
+          </div>
+
+          <button
+            onClick={() => setIsPricingOpen(false)}
+            className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-2xl shadow-md transition-all cursor-pointer"
+          >
+            Got it, thanks!
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!isPricingOpen) return null;
 

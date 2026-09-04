@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import { useAuth } from '../../context/AuthContext';
+import { UNLIMITED_USAGE } from '../../lib/config';
 import { TEMPLATES } from '../../data/templates';
 import {
   Sparkles,
@@ -230,7 +231,7 @@ export const DashboardView: React.FC = () => {
   return (
     <div className="flex-1 overflow-y-auto bg-slate-50/60 p-4 sm:p-6 lg:p-8 space-y-7 max-w-7xl mx-auto w-full">
       {/* 1. ZERO CREDITS DEPLETED ALERT (When credits <= 0) */}
-      {isZeroCredits && (
+      {!UNLIMITED_USAGE && isZeroCredits && (
         <div
           id="dash-zero-credits-alert"
           className="bg-rose-500/10 border border-rose-300 dark:border-rose-800 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in duration-200 shadow-xs"
@@ -269,7 +270,7 @@ export const DashboardView: React.FC = () => {
       )}
 
       {/* 2. LOW CREDITS WARNING BANNER (When credits > 0 and <= 15) */}
-      {!isZeroCredits && isLowCredits && (
+      {!UNLIMITED_USAGE && !isZeroCredits && isLowCredits && (
         <div
           id="dash-low-credits-warning"
           className="bg-amber-500/10 border border-amber-300 dark:border-amber-700 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in duration-200 shadow-xs"

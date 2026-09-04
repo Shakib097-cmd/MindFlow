@@ -1,4 +1,5 @@
 import { PlanType, UsageData, UserProfile, CreditTopUpPackage } from '../types';
+import { UNLIMITED_USAGE } from '../config/usageConfig';
 
 // =========================================================================
 // 1. SYSTEM FEATURE IDENTIFIERS (Single Source of Truth)
@@ -376,6 +377,10 @@ export function canAffordFeature(
   missing: number;
   reason?: string;
 } {
+  if (UNLIMITED_USAGE) {
+    return { allowed: true, cost: 0, balance: creditsBalance, missing: 0 };
+  }
+
   const meta = FEATURE_REGISTRY[featureKey];
   if (!meta || !meta.requiresCredits) {
     return { allowed: true, cost: 0, balance: creditsBalance, missing: 0 };
@@ -461,6 +466,10 @@ export function canPerformAIGeneration(usage: UsageData, plan: PlanType = 'free'
   remaining: number;
   reason?: string;
 } {
+  if (UNLIMITED_USAGE) {
+    return { allowed: true, remaining: 99999 };
+  }
+
   // Use credit balance if present, otherwise fallback to generations count
   if (typeof usage.creditsBalance === 'number') {
     if (usage.creditsBalance <= 0) {

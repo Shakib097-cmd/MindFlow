@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { X, Zap, Check, Sparkles, ShieldCheck, ArrowRight, HelpCircle } from 'lucide-react';
 import { useWorkspace } from '../../context/WorkspaceContext';
+import { useAuth } from '../../context/AuthContext';
+import { UNLIMITED_USAGE } from '../../config/usageConfig';
 import { TOPUP_PACKAGES, FEATURE_REGISTRY, FeatureKey } from '../../services/entitlementsService';
 import { CreditTopUpPackage } from '../../types';
 
@@ -14,6 +16,8 @@ export interface CreditTopUpModalProps {
 
 export const CreditTopUpModal: React.FC<CreditTopUpModalProps> = (props) => {
   const workspace = useWorkspace();
+  const { profile } = useAuth();
+
   const isOpen = props.isOpen !== undefined ? props.isOpen : workspace.isCreditTopUpOpen;
   const onClose = props.onClose || (() => workspace.setIsCreditTopUpOpen(false));
   const currentBalance =
@@ -27,6 +31,46 @@ export const CreditTopUpModal: React.FC<CreditTopUpModalProps> = (props) => {
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [successReceipt, setSuccessReceipt] = useState<{ credits: number; newBalance: number } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const isAdmin =
+    profile?.email?.trim().toLowerCase() === 'starcybercafe097@gmail.com';
+
+  if (UNLIMITED_USAGE && !isAdmin) {
+    if (!isOpen) return null;
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-8 shadow-2xl border border-slate-200/80 dark:border-slate-800 text-center space-y-6 relative">
+          <button
+            onClick={() => onClose()}
+            className="absolute top-5 right-5 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 flex items-center justify-center text-slate-500 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+          
+          <div className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto shadow-inner">
+            <Zap className="w-8 h-8" />
+          </div>
+
+          <div className="space-y-2">
+            <span className="px-3 py-1 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold text-xs rounded-full uppercase tracking-wider">
+              Coming Soon
+            </span>
+            <h2 className="text-xl font-black text-slate-900 dark:text-white">AI Credit Top-Ups</h2>
+            <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+              Credit refill packages and billing integration are coming soon. All AI generations and operations are currently <strong>unlimited and free</strong> for your workspace!
+            </p>
+          </div>
+
+          <button
+            onClick={() => onClose()}
+            className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-2xl shadow-md transition-all cursor-pointer"
+          >
+            Understood
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!isOpen) return null;
 

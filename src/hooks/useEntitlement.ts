@@ -10,6 +10,7 @@ import {
   getFeatureCreditCost,
   canAffordFeature,
 } from '../services/entitlementsService';
+import { UNLIMITED_USAGE } from '../lib/config';
 import { PlanType } from '../types';
 
 export interface EntitlementCheckResult {
@@ -88,7 +89,7 @@ export function useEntitlement() {
         };
       }
 
-      if (meta?.requiresCredits) {
+      if (meta?.requiresCredits && !UNLIMITED_USAGE) {
         const creditCheck = checkCredits(featureKey);
         if (!creditCheck.allowed) {
           return {

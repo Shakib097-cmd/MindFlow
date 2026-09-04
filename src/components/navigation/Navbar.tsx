@@ -35,6 +35,7 @@ import {
 import { AIUsageProgressBar } from '../common/AIUsageProgressBar';
 import { UsageMeter } from '../common/UsageMeter';
 import { AuthModal } from '../modals/AuthModal';
+import { SHOW_PLAN_UI } from '../../lib/config';
 
 export const Navbar: React.FC = () => {
   const {
@@ -413,17 +414,19 @@ export const Navbar: React.FC = () => {
                   {profile?.name || 'MindFlow User'}
                 </div>
                 <div className="text-[11px] text-slate-500 truncate">{profile?.email || 'Free Plan'}</div>
-                <div className="mt-1.5 flex items-center justify-between">
-                  <span className="text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
-                    {profile?.plan || 'pro'} Plan
-                  </span>
-                  <button
-                    onClick={() => setIsPricingOpen(true)}
-                    className="text-[11px] text-indigo-600 hover:underline font-semibold"
-                  >
-                    Manage
-                  </button>
-                </div>
+                {(SHOW_PLAN_UI || isAdmin) && (
+                  <div className="mt-1.5 flex items-center justify-between">
+                    <span className="text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
+                      {profile?.plan || 'pro'} Plan
+                    </span>
+                    <button
+                      onClick={() => setIsPricingOpen(true)}
+                      className="text-[11px] text-indigo-600 hover:underline font-semibold"
+                    >
+                      Manage
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="py-1">

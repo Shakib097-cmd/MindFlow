@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { TEMPLATES } from '../../data/templates';
 import { GlobalLegalFooter } from '../legal/GlobalLegalFooter';
 import { CookieConsentBanner } from '../legal/CookieConsentBanner';
+import { SHOW_PLAN_UI } from '../../lib/config';
 import {
   Sparkles,
   ArrowRight,
@@ -970,6 +971,7 @@ export const LandingView: React.FC = () => {
         {/* =========================================================================
             7. TRANSPARENT PRICING (LIGHT MODE)
         ========================================================================= */}
+        {SHOW_PLAN_UI && (
         <section id="pricing" className="py-20 md:py-28 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
           <div className="text-center max-w-3xl mx-auto space-y-4">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-bold">
@@ -1134,6 +1136,7 @@ export const LandingView: React.FC = () => {
             </div>
           </div>
         </section>
+        )}
 
         {/* =========================================================================
             8. FREQUENTLY ASKED QUESTIONS (LIGHT MODE ACCORDION)

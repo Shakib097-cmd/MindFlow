@@ -1,3 +1,4 @@
+import { UNLIMITED_USAGE } from '../../lib/config';
 import React, { useState } from 'react';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import { useAuth } from '../../context/AuthContext';
@@ -31,6 +32,9 @@ export const AIUsageProgressBar: React.FC<AIUsageProgressBarProps> = ({
   const { usage, setIsPricingOpen, setIsCreditTopUpOpen } = useWorkspace();
   const { profile } = useAuth();
   const [showPopover, setShowPopover] = useState(false);
+
+  const isAdmin = profile?.email?.trim().toLowerCase() === 'starcybercafe097@gmail.com';
+  if (UNLIMITED_USAGE && !isAdmin) return null;
 
   const used = usage?.aiGenerationsUsed ?? 0;
   const limit = usage?.aiGenerationsLimit ?? 50;

@@ -1,3 +1,4 @@
+import { UNLIMITED_USAGE } from '../../lib/config';
 import React, { useState, useMemo } from 'react';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import { useAuth } from '../../context/AuthContext';
@@ -36,6 +37,9 @@ export const SettingsModal: React.FC = () => {
   const { profile, user, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState<'usage' | 'account' | 'preferences'>('usage');
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const isAdmin = profile?.email?.trim().toLowerCase() === 'starcybercafe097@gmail.com';
+  const showPlanAndCredits = !UNLIMITED_USAGE || isAdmin;
 
   const {
     creditsBalance,
@@ -123,7 +127,7 @@ export const SettingsModal: React.FC = () => {
             }`}
           >
             <Zap className="w-3.5 h-3.5" />
-            <span>Monthly AI Usage</span>
+            <span>Coming Soon</span>
           </button>
 
           <button
@@ -158,167 +162,181 @@ export const SettingsModal: React.FC = () => {
           {/* TAB 1: AI USAGE & LIMITS */}
           {activeTab === 'usage' && (
             <div className="space-y-5">
-              {/* PRIMARY PRO PLAN & AI CREDITS BALANCE HERO STRIP (MATCHING SCREENSHOT) */}
-              <div
-                id="settings-plan-credits-hero"
-                className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-xs relative overflow-hidden"
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-3.5">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 shadow-xs">
-                      <Crown className="w-5 h-5 text-indigo-600" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-bold text-slate-900 uppercase">
-                          {effectivePlan} Plan
-                        </h3>
-                        <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.2 rounded-full text-[10px] font-bold border ${
-                            isSubscriptionActive
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                              : 'bg-rose-50 text-rose-700 border-rose-200'
-                          }`}
+              {showPlanAndCredits ? (
+                <>
+                  {/* PRIMARY PRO PLAN & AI CREDITS BALANCE HERO STRIP (MATCHING SCREENSHOT) */}
+                  <div
+                    id="settings-plan-credits-hero"
+                    className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-xs relative overflow-hidden"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-center gap-3.5">
+                        <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 shadow-xs">
+                          <Crown className="w-5 h-5 text-indigo-600" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-sm font-bold text-slate-900 uppercase">
+                              {effectivePlan} Plan
+                            </h3>
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-0.2 rounded-full text-[10px] font-bold border ${
+                                isSubscriptionActive
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  : 'bg-rose-50 text-rose-700 border-rose-200'
+                              }`}
+                            >
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  isSubscriptionActive ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
+                                }`}
+                              />
+                              {statusLabel}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-500 mt-0.5">
+                            Renewal: {renewalDateString} • {effectivePlan === 'free' ? 'Starter Quota' : 'Pro Entitlements'}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          id="settings-hero-topup-btn"
+                          onClick={() => {
+                            setIsSettingsOpen(false);
+                            setIsCreditTopUpOpen(true);
+                          }}
+                          className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1 cursor-pointer"
                         >
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              isSubscriptionActive ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
-                            }`}
-                          />
-                          {statusLabel}
+                          <Zap className="w-3.5 h-3.5 fill-white" />
+                          <span>Top Up</span>
+                        </button>
+                        <button
+                          id="settings-hero-manage-btn"
+                          onClick={() => {
+                            setIsSettingsOpen(false);
+                            setIsPricingOpen(true);
+                          }}
+                          className="px-3.5 py-1.5 border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded-xl transition-colors cursor-pointer"
+                        >
+                          Manage Plan
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* AI Credits Bar */}
+                    <div className="mt-4 bg-slate-50/90 rounded-xl p-3 border border-slate-200/80 space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-slate-800 flex items-center gap-1 text-[11px]">
+                          <Zap className="w-3 h-3 text-indigo-600 fill-indigo-600" />
+                          AI Credits Balance
+                        </span>
+                        <span className="font-black font-mono text-slate-900 text-xs">
+                          {creditsBalance} <span className="text-slate-400 font-normal">/ {monthlyCredits}</span>
                         </span>
                       </div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">
-                        Renewal: {renewalDateString} • {effectivePlan === 'free' ? 'Starter Quota' : 'Pro Entitlements'}
+                      <div className="w-full h-2 bg-slate-200/80 rounded-full overflow-hidden">
+                        <div
+                          style={{ width: `${creditUsagePercent}%` }}
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            isZeroCredits
+                              ? 'bg-rose-500'
+                              : creditUsagePercent <= 15
+                              ? 'bg-amber-500'
+                              : 'bg-indigo-600'
+                          }`}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] text-slate-500">
+                        <span className="font-medium text-slate-600">{creditUsagePercent}% capacity available</span>
+                        <div className="flex items-center gap-2">
+                          <span>Used: {creditsUsed}</span>
+                          {topupCredits > 0 && <span className="text-indigo-600 font-bold">(+{topupCredits} top-up)</span>}
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      id="settings-hero-topup-btn"
-                      onClick={() => {
-                        setIsSettingsOpen(false);
-                        setIsCreditTopUpOpen(true);
-                      }}
-                      className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1 cursor-pointer"
-                    >
-                      <Zap className="w-3.5 h-3.5 fill-white" />
-                      <span>Top Up</span>
-                    </button>
-                    <button
-                      id="settings-hero-manage-btn"
-                      onClick={() => {
-                        setIsSettingsOpen(false);
-                        setIsPricingOpen(true);
-                      }}
-                      className="px-3.5 py-1.5 border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded-xl transition-colors cursor-pointer"
-                    >
-                      Manage Plan
-                    </button>
-                  </div>
-                </div>
+                  {/* Monthly AI Generation Limit Card */}
+                  <AIUsageProgressBar
+                    variant="card"
+                    showDetails={true}
+                    onOpenUpgrade={() => {
+                      setIsSettingsOpen(false);
+                      setIsPricingOpen(true);
+                    }}
+                  />
 
-                {/* AI Credits Bar */}
-                <div className="mt-4 bg-slate-50/90 rounded-xl p-3 border border-slate-200/80 space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-slate-800 flex items-center gap-1 text-[11px]">
-                      <Zap className="w-3 h-3 text-indigo-600 fill-indigo-600" />
-                      AI Credits Balance
-                    </span>
-                    <span className="font-black font-mono text-slate-900 text-xs">
-                      {creditsBalance} <span className="text-slate-400 font-normal">/ {monthlyCredits}</span>
-                    </span>
-                  </div>
-                  <div className="w-full h-2 bg-slate-200/80 rounded-full overflow-hidden">
-                    <div
-                      style={{ width: `${creditUsagePercent}%` }}
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        isZeroCredits
-                          ? 'bg-rose-500'
-                          : creditUsagePercent <= 15
-                          ? 'bg-amber-500'
-                          : 'bg-indigo-600'
-                      }`}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between text-[10px] text-slate-500">
-                    <span className="font-medium text-slate-600">{creditUsagePercent}% capacity available</span>
-                    <div className="flex items-center gap-2">
-                      <span>Used: {creditsUsed}</span>
-                      {topupCredits > 0 && <span className="text-indigo-600 font-bold">(+{topupCredits} top-up)</span>}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                        AI Generations Used
+                      </div>
+                      <div className="text-2xl font-extrabold text-slate-900">
+                        {usage?.aiGenerationsUsed ?? 0}
+                      </div>
+                      <div className="text-[11px] text-slate-500 mt-1">
+                        Resets at the start of your billing cycle
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                        Plan Allowance
+                      </div>
+                      <div className="text-2xl font-extrabold text-indigo-600">
+                        {usage?.aiGenerationsLimit ?? 500}
+                      </div>
+                      <div className="text-[11px] text-slate-500 mt-1">
+                        Total quota allocated for this period
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
 
-              {/* Monthly AI Generation Limit Card */}
-              <AIUsageProgressBar
-                variant="card"
-                showDetails={true}
-                onOpenUpgrade={() => {
-                  setIsSettingsOpen(false);
-                  setIsPricingOpen(true);
-                }}
-              />
+                  <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-50/70 to-purple-50/50 border border-indigo-100 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Crown className="w-4 h-4 text-indigo-600" />
+                        <span className="text-xs font-bold text-indigo-950">Active Plan Capabilities</span>
+                      </div>
+                      <span className="text-[10px] font-extrabold tracking-wider uppercase px-2 py-0.5 rounded-full bg-indigo-600 text-white">
+                        {profile?.plan || 'pro'}
+                      </span>
+                    </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-                    AI Generations Used
+                    <div className="grid grid-cols-2 gap-2 text-xs text-slate-700">
+                      <div className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>Gemini 2.5 Flash / Pro 3.1</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>Unlimited Canvas Nodes</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>Multi-format SVG/PNG Export</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>Real-time Cloud Sync</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-2xl font-extrabold text-slate-900">
-                    {usage?.aiGenerationsUsed ?? 0}
+                </>
+              ) : (
+                <div className="bg-indigo-50/70 border border-indigo-100 rounded-2xl p-8 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center mx-auto shadow-xs">
+                    <Sparkles className="w-6 h-6" />
                   </div>
-                  <div className="text-[11px] text-slate-500 mt-1">
-                    Resets at the start of your billing cycle
-                  </div>
+                  <h3 className="text-base font-bold text-slate-900">Monthly AI Usage — Coming Soon</h3>
+                  <p className="text-xs text-slate-600 max-w-sm mx-auto leading-relaxed">
+                    AI usage tracking, limits, and top-up features are currently coming soon. You have full unlimited access to all AI capabilities.
+                  </p>
                 </div>
-
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-                    Plan Allowance
-                  </div>
-                  <div className="text-2xl font-extrabold text-indigo-600">
-                    {usage?.aiGenerationsLimit ?? 500}
-                  </div>
-                  <div className="text-[11px] text-slate-500 mt-1">
-                    Total quota allocated for this period
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-50/70 to-purple-50/50 border border-indigo-100 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Crown className="w-4 h-4 text-indigo-600" />
-                    <span className="text-xs font-bold text-indigo-950">Active Plan Capabilities</span>
-                  </div>
-                  <span className="text-[10px] font-extrabold tracking-wider uppercase px-2 py-0.5 rounded-full bg-indigo-600 text-white">
-                    {profile?.plan || 'pro'}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-xs text-slate-700">
-                  <div className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>Gemini 2.5 Flash / Pro 3.1</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>Unlimited Canvas Nodes</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>Multi-format SVG/PNG Export</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>Real-time Cloud Sync</span>
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
           )}
 

@@ -118,8 +118,8 @@ export const MindMapCanvas: React.FC = () => {
     (clientX: number, clientY: number) => {
       if (!containerRef.current) return { x: 0, y: 0 };
       const rect = containerRef.current.getBoundingClientRect();
-      const originX = containerDimensions.width / 2;
-      const originY = containerDimensions.height / 2;
+      const originX = (rect.width || containerDimensions.width) / 2;
+      const originY = (rect.height || containerDimensions.height) / 2;
       return {
         x: (clientX - rect.left - pan.x - originX) / zoom,
         y: (clientY - rect.top - pan.y - originY) / zoom,
@@ -931,8 +931,10 @@ export const MindMapCanvas: React.FC = () => {
         id="canvas-viewport"
         className="w-full h-full origin-top-left"
         style={{
-          transform: `translate(${pan.x + containerDimensions.width / 2}px, ${
-            pan.y + containerDimensions.height / 2
+          transform: `translate(${
+            pan.x + (containerDimensions.width || containerRef.current?.clientWidth || 1200) / 2
+          }px, ${
+            pan.y + (containerDimensions.height || containerRef.current?.clientHeight || 800) / 2
           }px) scale(${zoom})`,
           transition: isPanning || draggingNodeId ? 'none' : 'transform 0.15s ease-out',
         }}

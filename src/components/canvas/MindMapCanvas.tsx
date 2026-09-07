@@ -77,6 +77,57 @@ export const MindMapCanvas: React.FC = () => {
   const [isPanning, setIsPanning] = useState(false);
   const [startPanPos, setStartPanPos] = useState({ x: 0, y: 0 });
 
+  // Track container dimensions reactively via ResizeObserver to ensure robust centering & bounds
+  const [containerDimensions, setContainerDimensions] = useState<{ width: number; height: number }>({
+    width: typeof window !== 'undefined' ? window.innerWidth : 1200,
+    height: typeof window !== 'undefined' ? window.innerHeight : 800,
+  });
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const updateSize = () => {
+      if (el && el.clientWidth > 0 && el.clientHeight > 0) {
+        setContainerDimensions({
+          width: el.clientWidth,
+          height: el.clientHeight,
+        });
+      }
+    };
+
+    updateSize();
+
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect && entry.contentRect.width > 0 && entry.contentRect.height > 0) {
+          setContainerDimensions({
+            width: entry.contentRect.width,
+            height: entry.contentRect.height,
+          });
+        }
+      }
+    });
+
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Screen to Canvas coordinate conversion helper
+  const screenToCanvas = useCallback(
+    (clientX: number, clientY: number) => {
+      if (!containerRef.current) return { x: 0, y: 0 };
+      const rect = containerRef.current.getBoundingClientRect();
+      const originX = containerDimensions.width / 2;
+      const originY = containerDimensions.height / 2;
+      return {
+        x: (clientX - rect.left - pan.x - originX) / zoom,
+        y: (clientY - rect.top - pan.y - originY) / zoom,
+      };
+    },
+    [containerDimensions, pan, zoom]
+  );
+
   // Fullscreen and Texture State
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [canvasTexture, setCanvasTexture] = useState<'dots' | 'grid' | 'blank' | 'dark'>('dots');
@@ -110,21 +161,32 @@ export const MindMapCanvas: React.FC = () => {
 
   const centerOnRoot = useCallback(() => {
     const rootId = activeMap?.rootNodeId || nodes.find((n) => !n.parentId)?.id;
-    if (rootId) {
-      const rootNode = nodes.find((n) => n.id === rootId);
-      if (rootNode && containerRef.current) {
-        const cw = containerRef.current.clientWidth;
-        const ch = containerRef.current.clientHeight;
-        setPan({
-          x: cw / 2 - (rootNode.x + rootNode.width / 2),
-          y: ch / 2 - (rootNode.y + rootNode.height / 2),
-        });
-        setZoom(1);
-        setLayoutNotice('Centered on root idea');
-        setTimeout(() => setLayoutNotice(null), 2000);
-      }
+    const rootNode = (rootId ? nodes.find((n) => n.id === rootId) : null) || nodes[0];
+    if (rootNode) {
+      setPan({
+        x: -(rootNode.x + rootNode.width / 2),
+        y: -(rootNode.y + rootNode.height / 2),
+      });
+      setZoom(1);
+      setLayoutNotice('Centered on root idea');
+      setTimeout(() => setLayoutNotice(null), 2000);
+    } else {
+      setPan({ x: 0, y: 0 });
+      setZoom(1);
     }
   }, [activeMap?.rootNodeId, nodes, setPan, setZoom]);
+
+  // Center on root idea whenever map is initially loaded if pan is at default origin (0, 0)
+  useEffect(() => {
+    const rootId = activeMap?.rootNodeId || nodes.find((n) => !n.parentId)?.id;
+    const rootNode = (rootId ? nodes.find((n) => n.id === rootId) : null) || nodes[0];
+    if (rootNode && pan.x === 0 && pan.y === 0) {
+      setPan({
+        x: -(rootNode.x + rootNode.width / 2),
+        y: -(rootNode.y + rootNode.height / 2),
+      });
+    }
+  }, [activeMap?.id, nodes]);
 
   // Dragging individual node
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
@@ -373,11 +435,11 @@ export const MindMapCanvas: React.FC = () => {
         y: e.clientY - startPanPos.y,
       });
     } else if (draggingNodeId) {
-      const currentZoom = zoom;
       const targetNode = nodes.find((n) => n.id === draggingNodeId);
       if (targetNode && containerRef.current) {
-        const newX = (e.clientX - pan.x - containerRef.current.getBoundingClientRect().left) / currentZoom - dragOffset.x;
-        const newY = (e.clientY - pan.y - containerRef.current.getBoundingClientRect().top) / currentZoom - dragOffset.y;
+        const canvasPos = screenToCanvas(e.clientX, e.clientY);
+        const newX = canvasPos.x - dragOffset.x;
+        const newY = canvasPos.y - dragOffset.y;
         updateNodePosition(draggingNodeId, Math.round(newX), Math.round(newY));
       }
     }
@@ -421,8 +483,9 @@ export const MindMapCanvas: React.FC = () => {
       } else if (draggingNodeId) {
         const targetNode = nodes.find((n) => n.id === draggingNodeId);
         if (targetNode && containerRef.current) {
-          const newX = (touch.clientX - pan.x - containerRef.current.getBoundingClientRect().left) / zoom - dragOffset.x;
-          const newY = (touch.clientY - pan.y - containerRef.current.getBoundingClientRect().top) / zoom - dragOffset.y;
+          const canvasPos = screenToCanvas(touch.clientX, touch.clientY);
+          const newX = canvasPos.x - dragOffset.x;
+          const newY = canvasPos.y - dragOffset.y;
           updateNodePosition(draggingNodeId, Math.round(newX), Math.round(newY));
         }
       }
@@ -447,13 +510,10 @@ export const MindMapCanvas: React.FC = () => {
     const node = nodes.find((n) => n.id === nodeId);
     if (!node || !containerRef.current) return;
 
-    const rect = containerRef.current.getBoundingClientRect();
-    const cursorCanvasX = (e.clientX - pan.x - rect.left) / zoom;
-    const cursorCanvasY = (e.clientY - pan.y - rect.top) / zoom;
-
+    const canvasPos = screenToCanvas(e.clientX, e.clientY);
     setDragOffset({
-      x: cursorCanvasX - node.x,
-      y: cursorCanvasY - node.y,
+      x: canvasPos.x - node.x,
+      y: canvasPos.y - node.y,
     });
     setDraggingNodeId(nodeId);
   };
@@ -465,13 +525,10 @@ export const MindMapCanvas: React.FC = () => {
     if (!node || !containerRef.current || e.touches.length === 0) return;
 
     const touch = e.touches[0];
-    const rect = containerRef.current.getBoundingClientRect();
-    const cursorCanvasX = (touch.clientX - pan.x - rect.left) / zoom;
-    const cursorCanvasY = (touch.clientY - pan.y - rect.top) / zoom;
-
+    const canvasPos = screenToCanvas(touch.clientX, touch.clientY);
     setDragOffset({
-      x: cursorCanvasX - node.x,
-      y: cursorCanvasY - node.y,
+      x: canvasPos.x - node.x,
+      y: canvasPos.y - node.y,
     });
     setDraggingNodeId(nodeId);
   };
@@ -874,8 +931,8 @@ export const MindMapCanvas: React.FC = () => {
         id="canvas-viewport"
         className="w-full h-full origin-top-left"
         style={{
-          transform: `translate(${pan.x + (containerRef.current?.clientWidth || 0) / 2}px, ${
-            pan.y + (containerRef.current?.clientHeight || 0) / 2
+          transform: `translate(${pan.x + containerDimensions.width / 2}px, ${
+            pan.y + containerDimensions.height / 2
           }px) scale(${zoom})`,
           transition: isPanning || draggingNodeId ? 'none' : 'transform 0.15s ease-out',
         }}

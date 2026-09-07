@@ -29,12 +29,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     signInWithGoogle,
     signInWithEmail,
     signUpWithEmail,
+    sendPasswordReset,
     loginAsAdmin,
     signOut,
   } = useAuth();
   const { setCurrentView } = useWorkspace();
 
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -55,7 +56,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     setLoading(true);
 
     try {
-      if (mode === 'signup') {
+      if (mode === 'forgot') {
+        await sendPasswordReset(email.trim());
+        setSuccess('Password reset link sent! Please check your email inbox.');
+        return;
+      } else if (mode === 'signup') {
         await signUpWithEmail(email.trim(), password, name.trim() || 'MindFlow User');
       } else {
         await signInWithEmail(email.trim(), password);
@@ -259,43 +264,86 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               </div>
             </div>
 
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                Password
-              </label>
-              <div className="relative">
-                <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                <input
-                  type="password"
-                  id="auth-modal-password-input"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
+            {mode !== 'forgot' && (
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-700">
+                    Password
+                  </label>
+                  {mode === 'signin' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setError(null);
+                        setSuccess(null);
+                        setMode('forgot');
+                      }}
+                      className="text-[11px] text-indigo-600 hover:underline font-medium"
+                    >
+                      Forgot password?
+                    </button>
+                  )}
+                </div>
+                <div className="relative">
+                  <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                  <input
+                    type="password"
+                    id="auth-modal-password-input"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             <button
               type="submit"
               disabled={loading}
               className="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer"
             >
-              <span>{loading ? 'Processing...' : mode === 'signin' ? 'Sign In' : 'Create Account'}</span>
+              <span>
+                {loading
+                  ? 'Processing...'
+                  : mode === 'forgot'
+                  ? 'Send Password Reset Link'
+                  : mode === 'signin'
+                  ? 'Sign In'
+                  : 'Create Account'}
+              </span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </form>
 
           {/* Footer toggle & signout */}
           <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
-            <button
-              type="button"
-              onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')}
-              className="text-indigo-600 hover:underline font-semibold"
-            >
-              {mode === 'signin' ? 'Need an account? Sign up' : 'Already have an account? Sign in'}
-            </button>
+            {mode === 'forgot' ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setError(null);
+                  setSuccess(null);
+                  setMode('signin');
+                }}
+                className="text-indigo-600 hover:underline font-semibold"
+              >
+                Back to Sign In
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setError(null);
+                  setSuccess(null);
+                  setMode(mode === 'signin' ? 'signup' : 'signin');
+                }}
+                className="text-indigo-600 hover:underline font-semibold"
+              >
+                {mode === 'signin' ? 'Need an account? Sign up' : 'Already have an account? Sign in'}
+              </button>
+            )}
 
             {profile && (
               <button

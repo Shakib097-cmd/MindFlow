@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4F46E5" />
+      <stop offset="100%" stop-color="#7C3AED" />
+    </linearGradient>
+    <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="100%" stop-color="#818CF8" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#grad1)" />
+  <!-- Central node -->
+  <circle cx="32" cy="32" r="8" fill="#FFFFFF" />
+  <circle cx="32" cy="32" r="4" fill="#4F46E5" />
+  
+  <!-- Outer connected nodes -->
+  <circle cx="16" cy="20" r="5" fill="#FFFFFF" opacity="0.9" />
+  <circle cx="48" cy="20" r="5" fill="#FFFFFF" opacity="0.9" />
+  <circle cx="18" cy="46" r="4" fill="#38BDF8" />
+  <circle cx="46" cy="46" r="4" fill="#38BDF8" />
+
+  <!-- Connecting bezier edges -->
+  <path d="M32 32 Q24 24 16 20" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" opacity="0.85" />
+  <path d="M32 32 Q40 24 48 20" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" opacity="0.85" />
+  <path d="M32 32 Q22 42 18 46" stroke="#38BDF8" stroke-width="2" stroke-linecap="round" opacity="0.8" />
+  <path d="M32 32 Q42 42 46 46" stroke="#38BDF8" stroke-width="2" stroke-linecap="round" opacity="0.8" />
+  
+  <!-- Sparkle accent -->
+  <path d="M48 12 L49.5 15.5 L53 17 L49.5 18.5 L48 22 L46.5 18.5 L43 17 L46.5 15.5 Z" fill="#FDE047" />
+</svg>

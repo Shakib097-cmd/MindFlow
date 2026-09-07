@@ -78,11 +78,14 @@ export type WorkspaceView =
   | 'landing'
   | 'dashboard'
   | 'editor'
+  | 'canvas'
   | 'my_maps'
+  | 'my-maps'
   | 'tasks'
   | 'goals'
   | 'templates'
   | 'study_mode'
+  | 'study'
   | 'presentation'
   | 'settings'
   | 'admin'
@@ -231,10 +234,13 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (match) {
       return { view: 'legal', legalDocId: match.id as LegalDocId, manualCategory: 'getting-started' };
     }
-    if (path === '/landing') {
+    if (path.startsWith('/admin')) {
+      return { view: 'admin', legalDocId: 'privacy', manualCategory: 'getting-started' };
+    }
+    if (path === '/login' || path === '/signup' || path === '/landing') {
       return { view: 'landing', legalDocId: 'privacy', manualCategory: 'getting-started' };
     }
-    if (path === '/' || path === '' || path === '/dashboard' || path === '/app') {
+    if (path === '/' || path === '' || path === '/dashboard' || path === '/app' || path === '/profile' || path === '/settings') {
       return { view: 'dashboard', legalDocId: 'privacy', manualCategory: 'getting-started' };
     }
     if (path === '/editor' || path === '/canvas') {
@@ -270,17 +276,25 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [userManualCategory, setUserManualCategory] = useState<string>(initialRoute.manualCategory);
 
   const setCurrentView = useCallback((newView: WorkspaceView, skipPushState = false) => {
-    setCurrentViewInternal(newView);
+    let normalizedView = newView;
+    if (newView === 'canvas') normalizedView = 'editor';
+    else if (newView === 'my-maps') normalizedView = 'my_maps';
+    else if (newView === 'study') normalizedView = 'study_mode';
+
+    setCurrentViewInternal(normalizedView);
     if (!skipPushState && typeof window !== 'undefined') {
       const viewToRoute: Partial<Record<WorkspaceView, string>> = {
         landing: '/',
         dashboard: '/dashboard',
         editor: '/editor',
+        canvas: '/editor',
         my_maps: '/my-maps',
+        'my-maps': '/my-maps',
         tasks: '/tasks',
         goals: '/goals',
         templates: '/templates',
         study_mode: '/study',
+        study: '/study',
         presentation: '/presentation',
         admin: '/admin',
       };

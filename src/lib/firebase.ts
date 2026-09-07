@@ -10,6 +10,7 @@ import {
   getIdTokenResult,
   getIdToken,
   reload,
+  sendPasswordResetEmail,
   type User as FirebaseUser,
   type IdTokenResult,
 } from 'firebase/auth';
@@ -112,6 +113,7 @@ export {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
+  sendPasswordResetEmail,
   onAuthStateChanged,
   getIdTokenResult,
   getIdToken,

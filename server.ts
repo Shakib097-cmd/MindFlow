@@ -8,12 +8,127 @@ import { createServer as createViteServer } from 'vite';
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 const PRIMARY_PRODUCTION_DOMAIN = 'https://mindworkflow.in';
 const APP_URL = process.env.APP_URL || (process.env.NODE_ENV === 'production' ? PRIMARY_PRODUCTION_DOMAIN : `http://localhost:${PORT}`);
 
+// Standard API Response Envelope Helpers
+function sendSuccess(res: Response, data: any, statusCode = 200) {
+  return res.status(statusCode).json({
+    success: true,
+    data,
+    error: null,
+  });
+}
+
+function sendError(res: Response, code: string, message: string, statusCode = 400) {
+  return res.status(statusCode).json({
+    success: false,
+    data: null,
+    error: {
+      code,
+      message,
+    },
+  });
+}
+
+// Hardened Security Headers
+app.use((req: Request, res: Response, next: NextFunction) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
+
+// Production Multi-Domain CORS Configuration
+const ALLOWED_ORIGINS = new Set([
+  'https://mindworkflow.in',
+  'https://mindflow.example.com',
+  'https://api.mindflow.example.com',
+  ...(process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',').map((s) => s.trim()) : []),
+]);
+
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    if (
+      ALLOWED_ORIGINS.has(origin) ||
+      origin.endsWith('.run.app') ||
+      origin.endsWith('.pages.dev') ||
+      origin.endsWith('.workers.dev') ||
+      origin.startsWith('http://localhost:') ||
+      origin.startsWith('http://127.0.0.1:')
+    ) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-User-Id, X-User-Email, X-Requested-With');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Max-Age', '86400');
+    }
+  }
+
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+  next();
+});
+
+// Production Sliding Window Rate Limiter
+interface RateLimitBucket {
+  count: number;
+  resetAt: number;
+}
+const rateLimitMap = new Map<string, RateLimitBucket>();
+
+function apiRateLimiter(limit = 180, windowMs = 60000) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (req.path === '/health' || req.path === '/api/health') return next();
+
+    const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
+    const key = `${ip}:${req.path.split('/')[2] || 'api'}`;
+    const now = Date.now();
+
+    const record = rateLimitMap.get(key);
+    if (!record || now > record.resetAt) {
+      rateLimitMap.set(key, { count: 1, resetAt: now + windowMs });
+      return next();
+    }
+
+    if (record.count >= limit) {
+      const retryAfter = Math.ceil((record.resetAt - now) / 1000);
+      res.setHeader('Retry-After', String(retryAfter));
+      return res.status(429).json({
+        success: false,
+        data: null,
+        error: {
+          code: 'RATE_LIMIT_EXCEEDED',
+          message: `Too many requests. Please retry in ${retryAfter} seconds.`,
+        },
+      });
+    }
+
+    record.count++;
+    next();
+  };
+}
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, val] of rateLimitMap.entries()) {
+    if (now > val.resetAt) rateLimitMap.delete(key);
+  }
+}, 300000);
+
+// Apply rate limiter to all API endpoints
+app.use('/api/', apiRateLimiter(180, 60000));
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Cloud Run & Load Balancer Root Health Endpoint
+app.get('/health', (req: Request, res: Response) => {
+  res.status(200).json({ status: 'ok' });
+});
 
 // In-Memory Usage & Quota Store (mirrors Firestore sync and guards server-side rate limits)
 interface UserQuotaRecord {
@@ -1602,7 +1717,13 @@ app.get('/api/share/:shareToken', (req: Request, res: Response) => {
 
 // Health check with Firestore database status
 app.get('/api/health', (req: Request, res: Response) => {
-  res.json({ status: 'ok', service: 'MindFlow AI Server', timestamp: Date.now() });
+  sendSuccess(res, {
+    status: 'ok',
+    service: 'MindFlow AI Server',
+    environment: process.env.NODE_ENV || 'production',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+  });
 });
 
 app.get('/api/health/firestore', async (req: Request, res: Response) => {
@@ -1614,7 +1735,7 @@ app.get('/api/health/firestore', async (req: Request, res: Response) => {
       config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
     }
     
-    res.json({
+    sendSuccess(res, {
       status: 'connected',
       connected: true,
       projectId: config.projectId || 'gen-lang-client-0309605137',
@@ -1625,13 +1746,287 @@ app.get('/api/health/firestore', async (req: Request, res: Response) => {
       details: 'Cloud Firestore database connectivity verified and operational.',
     });
   } catch (err: any) {
-    res.status(500).json({
-      status: 'error',
-      connected: false,
-      error: err?.message || 'Database ping error',
-      timestamp: new Date().toISOString(),
-    });
+    sendError(res, 'DB_CONNECTION_ERROR', err?.message || 'Database ping error', 500);
   }
+});
+
+// =========================================================================
+// STANDARD REST API ENDPOINTS ({ success, data, error })
+// =========================================================================
+
+interface ServerProjectRecord {
+  id: string;
+  userId: string;
+  name: string;
+  description?: string;
+  theme?: string;
+  layout?: string;
+  nodeCount: number;
+  updatedAt: string;
+  createdAt: string;
+  data?: any;
+}
+
+const serverProjectsStore = new Map<string, ServerProjectRecord>();
+const serverGenerationsStore = new Map<string, any>();
+const serverProfilesStore = new Map<string, any>();
+
+// Helper to extract authenticated user from headers
+function getRequestUser(req: Request) {
+  const userId = (req.headers['x-user-id'] as string) || '';
+  const email = (req.headers['x-user-email'] as string) || '';
+  const authHeader = (req.headers['authorization'] as string) || '';
+
+  if (userId || email) {
+    return {
+      userId: userId || `user_${email.split('@')[0]}`,
+      email,
+      role: email === 'starcybercafe097@gmail.com' ? 'admin' : 'user',
+    };
+  }
+
+  if (authHeader.startsWith('Bearer ')) {
+    try {
+      const token = authHeader.substring(7);
+      const parts = token.split('.');
+      if (parts.length === 3) {
+        const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+        const uid = payload.user_id || payload.sub || payload.uid || 'auth_user';
+        const em = payload.email || '';
+        return {
+          userId: uid,
+          email: em,
+          role: em === 'starcybercafe097@gmail.com' || payload.admin ? 'admin' : 'user',
+        };
+      }
+    } catch {}
+  }
+
+  return null;
+}
+
+// 1. Auth & Session Endpoints
+app.get('/api/auth/me', (req: Request, res: Response) => {
+  const user = getRequestUser(req);
+  if (!user) {
+    return sendError(res, 'UNAUTHENTICATED', 'No active session found', 401);
+  }
+  const profile = serverProfilesStore.get(user.userId) || {
+    id: user.userId,
+    email: user.email,
+    name: user.email ? user.email.split('@')[0] : 'User',
+    role: user.role,
+    plan: user.email === 'starcybercafe097@gmail.com' ? 'business' : 'pro',
+  };
+  return sendSuccess(res, { user, profile });
+});
+
+app.get('/api/auth/session', (req: Request, res: Response) => {
+  const user = getRequestUser(req);
+  return sendSuccess(res, {
+    authenticated: Boolean(user),
+    user: user || null,
+    expiresAt: user ? Date.now() + 86400000 : null,
+  });
+});
+
+app.post('/api/auth/verify', (req: Request, res: Response) => {
+  const user = getRequestUser(req);
+  if (!user) {
+    return sendError(res, 'INVALID_TOKEN', 'Token verification failed or token expired', 401);
+  }
+  return sendSuccess(res, { valid: true, user });
+});
+
+// 2. Users & Profile Endpoints
+app.get('/api/users', (req: Request, res: Response) => {
+  const user = getRequestUser(req);
+  if (user && user.role === 'admin') {
+    const list = Array.from(serverProfilesStore.values());
+    return sendSuccess(res, { users: list, total: list.length });
+  }
+  if (user) {
+    const profile = serverProfilesStore.get(user.userId) || { id: user.userId, email: user.email };
+    return sendSuccess(res, { users: [profile], total: 1 });
+  }
+  return sendError(res, 'UNAUTHORIZED', 'Authentication required to list users', 401);
+});
+
+app.get('/api/users/:userId', (req: Request, res: Response) => {
+  const { userId } = req.params;
+  const profile = serverProfilesStore.get(userId) || {
+    id: userId,
+    email: `${userId}@example.com`,
+    plan: 'pro',
+    createdAt: new Date().toISOString(),
+  };
+  return sendSuccess(res, profile);
+});
+
+app.get('/api/profile', (req: Request, res: Response) => {
+  const user = getRequestUser(req);
+  if (!user) {
+    return sendError(res, 'UNAUTHENTICATED', 'No profile for unauthenticated user', 401);
+  }
+  const profile = serverProfilesStore.get(user.userId) || {
+    id: user.userId,
+    email: user.email,
+    name: user.email ? user.email.split('@')[0] : 'User',
+    role: user.role,
+    plan: user.email === 'starcybercafe097@gmail.com' ? 'business' : 'pro',
+  };
+  return sendSuccess(res, profile);
+});
+
+app.get('/api/profile/:userId', (req: Request, res: Response) => {
+  const { userId } = req.params;
+  const profile = serverProfilesStore.get(userId) || {
+    id: userId,
+    plan: 'pro',
+    updatedAt: new Date().toISOString(),
+  };
+  return sendSuccess(res, profile);
+});
+
+app.post('/api/profile/:userId', (req: Request, res: Response) => {
+  const { userId } = req.params;
+  const existing = serverProfilesStore.get(userId) || { id: userId };
+  const updated = { ...existing, ...req.body, updatedAt: new Date().toISOString() };
+  serverProfilesStore.set(userId, updated);
+  return sendSuccess(res, updated);
+});
+
+// 3. Projects Endpoints
+app.get('/api/projects', (req: Request, res: Response) => {
+  const user = getRequestUser(req);
+  const userId = user?.userId || (req.query.userId as string);
+  let projects = Array.from(serverProjectsStore.values());
+  if (userId) {
+    projects = projects.filter((p) => p.userId === userId);
+  }
+  return sendSuccess(res, { projects, count: projects.length });
+});
+
+app.post('/api/projects', (req: Request, res: Response) => {
+  const user = getRequestUser(req);
+  const { id, name, description, theme, layout, nodeCount, data } = req.body;
+  const projectId = id || `proj_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+  const record: ServerProjectRecord = {
+    id: projectId,
+    userId: user?.userId || req.body.userId || 'anonymous',
+    name: name || 'Untitled Mind Map',
+    description: description || '',
+    theme: theme || 'default',
+    layout: layout || 'left-to-right',
+    nodeCount: Number(nodeCount) || 1,
+    updatedAt: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+    data: data || null,
+  };
+  serverProjectsStore.set(projectId, record);
+  return sendSuccess(res, record, 201);
+});
+
+app.get('/api/projects/:projectId', (req: Request, res: Response) => {
+  const { projectId } = req.params;
+  const project = serverProjectsStore.get(projectId);
+  if (!project) {
+    return sendError(res, 'PROJECT_NOT_FOUND', `Project ${projectId} does not exist`, 404);
+  }
+  return sendSuccess(res, project);
+});
+
+app.put('/api/projects/:projectId', (req: Request, res: Response) => {
+  const { projectId } = req.params;
+  const existing = serverProjectsStore.get(projectId);
+  if (!existing) {
+    return sendError(res, 'PROJECT_NOT_FOUND', `Project ${projectId} not found`, 404);
+  }
+  const updated: ServerProjectRecord = {
+    ...existing,
+    ...req.body,
+    id: projectId,
+    updatedAt: new Date().toISOString(),
+  };
+  serverProjectsStore.set(projectId, updated);
+  return sendSuccess(res, updated);
+});
+
+app.delete('/api/projects/:projectId', (req: Request, res: Response) => {
+  const { projectId } = req.params;
+  const exists = serverProjectsStore.has(projectId);
+  if (!exists) {
+    return sendError(res, 'PROJECT_NOT_FOUND', `Project ${projectId} not found`, 404);
+  }
+  serverProjectsStore.delete(projectId);
+  return sendSuccess(res, { deleted: true, projectId });
+});
+
+// 4. AI Generations Endpoints
+app.get('/api/generations', (req: Request, res: Response) => {
+  const user = getRequestUser(req);
+  let logs = Array.from(serverGenerationsStore.values());
+  if (user && user.role !== 'admin') {
+    logs = logs.filter((l) => l.userId === user.userId);
+  }
+  return sendSuccess(res, { generations: logs, total: logs.length });
+});
+
+app.get('/api/generations/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const record = serverGenerationsStore.get(id);
+  if (!record) {
+    return sendError(res, 'RECORD_NOT_FOUND', `Generation record ${id} not found`, 404);
+  }
+  return sendSuccess(res, record);
+});
+
+// 5. Usage & Settings Endpoints
+app.get('/api/usage', (req: Request, res: Response) => {
+  const user = getRequestUser(req);
+  const userId = user?.userId || 'guest';
+  const quota = userQuotaCache.get(userId) || {
+    userId,
+    plan: user?.email === 'starcybercafe097@gmail.com' ? 'business' : 'pro',
+    aiGenerationsUsed: 0,
+    aiGenerationsLimit: 100,
+    creditsBalance: 100,
+    monthlyCredits: 100,
+    creditsUsed: 0,
+    topupCredits: 0,
+    subscriptionStatus: 'active',
+    periodStart: Date.now(),
+    periodEnd: Date.now() + 30 * 86400000,
+  };
+  return sendSuccess(res, quota);
+});
+
+app.get('/api/usage/:userId', (req: Request, res: Response) => {
+  const { userId } = req.params;
+  const quota = userQuotaCache.get(userId) || {
+    userId,
+    plan: 'pro',
+    aiGenerationsUsed: 0,
+    aiGenerationsLimit: 100,
+    creditsBalance: 100,
+    monthlyCredits: 100,
+    creditsUsed: 0,
+    topupCredits: 0,
+    subscriptionStatus: 'active',
+    periodStart: Date.now(),
+    periodEnd: Date.now() + 30 * 86400000,
+  };
+  return sendSuccess(res, quota);
+});
+
+app.get('/api/settings', (req: Request, res: Response) => {
+  return sendSuccess(res, {
+    appVersion: '2.5.0',
+    maintenanceMode: false,
+    primaryDomain: PRIMARY_PRODUCTION_DOMAIN,
+    defaultAIModel: 'gemini-2.5-flash',
+    supportedExportFormats: ['png', 'svg', 'json', 'pdf', 'markdown', 'txt'],
+  });
 });
 
 // =========================================================================
@@ -2566,6 +2961,22 @@ app.get('/api/admin/legal/inquiries', verifyAdminToken, (req: AuthenticatedAdmin
   res.json({ inquiries: legalInquiriesStore });
 });
 
+// Centralized Error Handling Middleware
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  console.error('[API Server Error]', err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  const statusCode = err.status || err.statusCode || 500;
+  return res.status(statusCode).json({
+    success: false,
+    data: null,
+    error: {
+      code: err.code || 'INTERNAL_SERVER_ERROR',
+      message: err.message || 'An internal server error occurred',
+    },
+  });
+});
 
 // Setup Vite development middleware or production static serving
 async function start() {

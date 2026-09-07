@@ -80,7 +80,8 @@ export const StudyModeView: React.FC = () => {
   const calculateScore = () => {
     let score = 0;
     (quizQuestions || []).forEach((q, idx) => {
-      if (q && selectedAnswers[idx] === q.correctAnswer) {
+      const correctIdx = q.correctAnswer !== undefined ? q.correctAnswer : (q.answerIndex ?? 0);
+      if (q && selectedAnswers[idx] === correctIdx) {
         score++;
       }
     });
@@ -264,7 +265,8 @@ export const StudyModeView: React.FC = () => {
               {/* Review questions */}
               <div className="space-y-4 text-left">
                 {quizQuestions.map((q, idx) => {
-                  const isCorrect = selectedAnswers[idx] === q.correctAnswer;
+                  const correctIdx = q.correctAnswer !== undefined ? q.correctAnswer : (q.answerIndex ?? 0);
+                  const isCorrect = selectedAnswers[idx] === correctIdx;
                   return (
                     <div
                       key={q.id}
@@ -286,7 +288,7 @@ export const StudyModeView: React.FC = () => {
                       </div>
                       <div className="text-slate-600 mt-1 pl-6">
                         <p>
-                          Correct Answer: <strong className="text-emerald-700">{q.options[q.correctAnswer]}</strong>
+                          Correct Answer: <strong className="text-emerald-700">{q.options[correctIdx]}</strong>
                         </p>
                         <p className="text-[11px] text-slate-500 mt-1">{q.explanation}</p>
                       </div>

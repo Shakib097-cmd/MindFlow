@@ -29,17 +29,41 @@ export const AdminAIUsageView: React.FC = () => {
     async function loadData() {
       setLoading(true);
       setErrorMsg(null);
+      const defaultMetrics: AdminAIUsageMetrics = {
+        totalRequests: 0,
+        successfulRequests: 0,
+        failedRequests: 0,
+        quotaRejected: 0,
+        tokensUsedEstimate: 0,
+        averageDurationMs: 0,
+        byModel: {},
+        byFeature: {},
+        byPlan: { free: 0, pro: 0, business: 0 },
+        dailyTrend: [],
+      };
+
       try {
         const [usageRes, logsRes] = await Promise.all([
-          adminService.getAIUsage(adminRole).catch(() => ({ metrics: { totalRequests: 0, successfulRequests: 0, failedRequests: 0, quotaRejected: 0, tokensUsedEstimate: 0, averageDurationMs: 0, byModel: {}, byFeature: {}, byPlan: {} } })),
+          adminService.getAIUsage(adminRole).catch(() => ({ metrics: defaultMetrics })),
           adminService.getAILogs(100, adminRole).catch(() => ({ logs: [] })),
         ]);
-        setMetrics(usageRes?.metrics || { totalRequests: 0, successfulRequests: 0, failedRequests: 0, quotaRejected: 0, tokensUsedEstimate: 0, averageDurationMs: 0, byModel: {}, byFeature: {}, byPlan: {} });
+        setMetrics(usageRes?.metrics || defaultMetrics);
         setLogs(Array.isArray(logsRes?.logs) ? logsRes.logs : []);
       } catch (err: any) {
         console.error('Failed to load AI usage:', err);
         setErrorMsg(err?.message || 'Failed to fetch');
-        setMetrics({ totalRequests: 0, successfulRequests: 0, failedRequests: 0, quotaRejected: 0, tokensUsedEstimate: 0, averageDurationMs: 0, byModel: {}, byFeature: {}, byPlan: {} });
+        setMetrics({
+          totalRequests: 0,
+          successfulRequests: 0,
+          failedRequests: 0,
+          quotaRejected: 0,
+          tokensUsedEstimate: 0,
+          averageDurationMs: 0,
+          byModel: {},
+          byFeature: {},
+          byPlan: { free: 0, pro: 0, business: 0 },
+          dailyTrend: [],
+        });
         setLogs([]);
       } finally {
         setLoading(false);

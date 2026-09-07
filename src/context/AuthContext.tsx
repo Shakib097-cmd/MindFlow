@@ -10,6 +10,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut as fbSignOut,
+  sendPasswordResetEmail,
   onAuthStateChanged,
   getIdTokenResult,
   reload,
@@ -51,6 +52,7 @@ interface AuthContextType {
   signUpWithEmail: (email: string, pass: string, name: string) => Promise<void>;
   loginAsAdmin: () => void;
   loginAsEmailUser: (email: string, name?: string) => void;
+  sendPasswordReset: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
   updatePlan: (plan: PlanType) => void;
   updateProfile: (data: Partial<UserProfile>) => Promise<void>;
@@ -344,6 +346,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem(LOCAL_PROFILE_KEY, JSON.stringify(newProfile));
   };
 
+  const sendPasswordReset = async (email: string) => {
+    const trimmed = email.trim();
+    if (!trimmed) {
+      throw new Error('Please enter your email address to receive password reset instructions.');
+    }
+    await sendPasswordResetEmail(auth, trimmed);
+  };
+
   const signOut = async () => {
     try {
       await fbSignOut(auth);
@@ -575,6 +585,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signUpWithEmail,
         loginAsAdmin,
         loginAsEmailUser,
+        sendPasswordReset,
         signOut,
         updatePlan,
         updateProfile,

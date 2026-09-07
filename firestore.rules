@@ -370,5 +370,44 @@ service cloud.firestore {
       allow update: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
       allow delete: if isAdmin();
     }
+
+    // =========================================================================
+    // 14. PROFILES (/profiles/{userId})
+    // =========================================================================
+    match /profiles/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+      allow create, update: if isOwner(userId);
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // 15. PROJECTS (/projects/{projectId})
+    // =========================================================================
+    match /projects/{projectId} {
+      allow get: if (isSignedIn() && resource.data.ownerId == request.auth.uid) || isAdmin();
+      allow list: if (isSignedIn() && resource.data.ownerId == request.auth.uid) || isAdmin();
+      allow create: if isSignedIn() && incoming().ownerId == request.auth.uid && isValidId(projectId);
+      allow update: if isSignedIn() && existing().ownerId == request.auth.uid && incoming().ownerId == request.auth.uid;
+      allow delete: if (isSignedIn() && existing().ownerId == request.auth.uid) || isAdmin();
+    }
+
+    // =========================================================================
+    // 16. GENERATIONS (/generations/{generationId})
+    // =========================================================================
+    match /generations/{generationId} {
+      allow get, list: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // 17. SETTINGS (/settings/{userId})
+    // =========================================================================
+    match /settings/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow create, update: if isOwner(userId);
+      allow delete: if isAdmin();
+    }
   }
 }

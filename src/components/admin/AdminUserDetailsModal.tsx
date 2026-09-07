@@ -18,13 +18,15 @@ import {
 } from 'lucide-react';
 
 interface Props {
-  user: AdminUserRecord | null;
+  user?: AdminUserRecord | null;
+  userId?: string | null;
   onClose: () => void;
   onUpdated: () => void;
 }
 
-export const AdminUserDetailsModal: React.FC<Props> = ({ user, onClose, onUpdated }) => {
+export const AdminUserDetailsModal: React.FC<Props> = ({ user, userId, onClose, onUpdated }) => {
   const { adminRole } = useAdmin();
+  const [currentUser, setCurrentUser] = useState<AdminUserRecord | null>(user || null);
   const [suspendReason, setSuspendReason] = useState('');
   const [selectedPlan, setSelectedPlan] = useState<PlanType>(user?.plan || 'free');
   const [planReason, setPlanReason] = useState('');
@@ -32,10 +34,26 @@ export const AdminUserDetailsModal: React.FC<Props> = ({ user, onClose, onUpdate
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ text: string; isError: boolean } | null>(null);
 
-  if (!user) return null;
+  React.useEffect(() => {
+    if (user) {
+      setCurrentUser(user);
+      setSelectedPlan(user.plan || 'free');
+    } else if (userId) {
+      adminService.getUserDetails(userId, adminRole)
+        .then((res: any) => {
+          if (res?.user) {
+            setCurrentUser(res.user);
+            setSelectedPlan(res.user.plan || 'free');
+          }
+        })
+        .catch((err) => console.error('Error fetching user for modal:', err));
+    }
+  }, [user, userId, adminRole]);
 
-  const isSuspended = user.status === 'suspended';
-  const isSuperAdmin = (user.email || '').toLowerCase() === 'starcybercafe097@gmail.com';
+  if (!currentUser) return null;
+
+  const isSuspended = currentUser.status === 'suspended';
+  const isSuperAdmin = (currentUser.email || '').toLowerCase() === 'starcybercafe097@gmail.com';
   const canModify = ['SUPER_ADMIN', 'ADMIN'].includes(adminRole);
   const canResetUsage = ['SUPER_ADMIN', 'ADMIN', 'SUPPORT'].includes(adminRole);
 
@@ -49,8 +67,8 @@ export const AdminUserDetailsModal: React.FC<Props> = ({ user, onClose, onUpdate
     setStatusMessage(null);
     try {
       const nextStatus = isSuspended ? 'active' : 'suspended';
-      await adminService.updateUserStatus(user.id, nextStatus, suspendReason || 'Admin console action', adminRole);
-      window.dispatchEvent(new CustomEvent('mindflow_admin_update', { detail: { userId: user.id } }));
+      await adminService.updateUserStatus(currentUser.id, nextStatus, suspendReason || 'Admin console action', adminRole);
+      window.dispatchEvent(new CustomEvent('mindflow_admin_update', { detail: { userId: currentUser.id } }));
       setStatusMessage({ text: `User status changed to ${nextStatus}`, isError: false });
       setTimeout(() => {
         onUpdated();
@@ -68,8 +86,8 @@ export const AdminUserDetailsModal: React.FC<Props> = ({ user, onClose, onUpdate
     setLoading(true);
     setStatusMessage(null);
     try {
-      await adminService.updateUserPlan(user.id, selectedPlan, planReason || 'Plan override via Admin Console', adminRole);
-      window.dispatchEvent(new CustomEvent('mindflow_admin_update', { detail: { userId: user.id } }));
+      await adminService.updateUserPlan(currentUser.id, selectedPlan, planReason || 'Plan override via Admin Console', adminRole);
+      window.dispatchEvent(new CustomEvent('mindflow_admin_update', { detail: { userId: currentUser.id } }));
       setStatusMessage({ text: `Plan updated to ${(selectedPlan || '').toUpperCase()}`, isError: false });
       setTimeout(() => {
         onUpdated();
@@ -87,8 +105,8 @@ export const AdminUserDetailsModal: React.FC<Props> = ({ user, onClose, onUpdate
     setLoading(true);
     setStatusMessage(null);
     try {
-      await adminService.resetUserUsage(user.id, 'AI quota reset via Admin Console', adminRole);
-      window.dispatchEvent(new CustomEvent('mindflow_admin_update', { detail: { userId: user.id } }));
+      await adminService.resetUserUsage(currentUser.id, 'AI quota reset via Admin Console', adminRole);
+      window.dispatchEvent(new CustomEvent('mindflow_admin_update', { detail: { userId: currentUser.id } }));
       setStatusMessage({ text: 'AI generation quota reset to 0/0', isError: false });
       setTimeout(() => {
         onUpdated();
@@ -108,11 +126,11 @@ export const AdminUserDetailsModal: React.FC<Props> = ({ user, onClose, onUpdate
         <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-indigo-100 border border-indigo-200 flex items-center justify-center text-sm font-bold text-indigo-700">
-              {user.name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
+              {currentUser.name?.[0]?.toUpperCase() || currentUser.email[0].toUpperCase()}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-slate-900">{user.name || 'MindFlow User'}</h3>
+                <h3 className="text-base font-bold text-slate-900">{currentUser.name || 'MindFlow User'}</h3>
                 {isSuperAdmin && (
                   <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase bg-purple-100 text-purple-800 border border-purple-200 flex items-center gap-1">
                     <Crown className="w-3 h-3 text-purple-600" /> Super Admin
@@ -125,13 +143,13 @@ export const AdminUserDetailsModal: React.FC<Props> = ({ user, onClose, onUpdate
                       : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                   }`}
                 >
-                  {user.status}
+                  {currentUser.status}
                 </span>
                 <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 font-mono font-semibold uppercase">
-                  {user.plan}
+                  {currentUser.plan}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 font-mono">{user.email}</p>
+              <p className="text-xs text-slate-500 font-mono">{currentUser.email}</p>
             </div>
           </div>
           <button
@@ -208,11 +226,11 @@ export const AdminUserDetailsModal: React.FC<Props> = ({ user, onClose, onUpdate
                   <div>
                     <h4 className="text-xs font-bold text-rose-900">Account is Currently Suspended</h4>
                     <p className="text-xs text-rose-700 mt-0.5">
-                      Reason: <span className="font-semibold">{user.suspensionReason || 'Administrative decision'}</span>
+                      Reason: <span className="font-semibold">{currentUser.suspensionReason || 'Administrative decision'}</span>
                     </p>
-                    {user.suspendedAt && (
+                    {currentUser.suspendedAt && (
                       <p className="text-[10px] text-rose-600 mt-1 font-mono">
-                        Suspended on {new Date(user.suspendedAt).toLocaleString()} by {user.suspendedBy || 'Admin'}
+                        Suspended on {new Date(currentUser.suspendedAt).toLocaleString()} by {currentUser.suspendedBy || 'Admin'}
                       </p>
                     )}
                   </div>
@@ -227,12 +245,12 @@ export const AdminUserDetailsModal: React.FC<Props> = ({ user, onClose, onUpdate
                     AI Generations
                   </div>
                   <div className="text-lg font-bold text-slate-900">
-                    {user.aiUsage.used} <span className="text-xs font-normal text-slate-500">/ {user.aiUsage.limit}</span>
+                    {currentUser.aiUsage.used} <span className="text-xs font-normal text-slate-500">/ {currentUser.aiUsage.limit}</span>
                   </div>
                   <div className="w-full bg-slate-200 rounded-full h-1.5 mt-2 overflow-hidden">
                     <div
                       className="bg-amber-500 h-full rounded-full"
-                      style={{ width: `${Math.min(100, (user.aiUsage.used / Math.max(1, user.aiUsage.limit)) * 100)}%` }}
+                      style={{ width: `${Math.min(100, (currentUser.aiUsage.used / Math.max(1, currentUser.aiUsage.limit)) * 100)}%` }}
                     />
                   </div>
                 </div>
@@ -242,7 +260,7 @@ export const AdminUserDetailsModal: React.FC<Props> = ({ user, onClose, onUpdate
                     <Network className="w-3.5 h-3.5 text-indigo-600" />
                     Mind Maps
                   </div>
-                  <div className="text-lg font-bold text-slate-900">{user.mapsCount || 0}</div>
+                  <div className="text-lg font-bold text-slate-900">{currentUser.mapsCount || 0}</div>
                   <p className="text-[10px] text-slate-500 mt-1">Saved graphs</p>
                 </div>
 
@@ -251,7 +269,7 @@ export const AdminUserDetailsModal: React.FC<Props> = ({ user, onClose, onUpdate
                     <CreditCard className="w-3.5 h-3.5 text-indigo-600" />
                     Subscription
                   </div>
-                  <div className="text-lg font-bold text-indigo-600 uppercase">{user.plan}</div>
+                  <div className="text-lg font-bold text-indigo-600 uppercase">{currentUser.plan}</div>
                   <p className="text-[10px] text-slate-500 mt-1">Tier Plan Quota</p>
                 </div>
               </div>
@@ -262,17 +280,17 @@ export const AdminUserDetailsModal: React.FC<Props> = ({ user, onClose, onUpdate
                   <span className="text-slate-500 flex items-center gap-1.5 font-medium">
                     <Calendar className="w-3.5 h-3.5" /> Account Created:
                   </span>
-                  <span className="font-mono text-slate-900 font-semibold">{new Date(user.createdAt).toLocaleDateString()}</span>
+                  <span className="font-mono text-slate-900 font-semibold">{new Date(currentUser.createdAt).toLocaleDateString()}</span>
                 </div>
                 <div className="flex items-center justify-between text-slate-700">
                   <span className="text-slate-500 flex items-center gap-1.5 font-medium">
                     <Clock className="w-3.5 h-3.5" /> Last Active:
                   </span>
-                  <span className="font-mono text-slate-900 font-semibold">{new Date(user.lastActiveAt).toLocaleString()}</span>
+                  <span className="font-mono text-slate-900 font-semibold">{new Date(currentUser.lastActiveAt).toLocaleString()}</span>
                 </div>
                 <div className="flex items-center justify-between text-slate-700">
                   <span className="text-slate-500 font-medium">User Document ID:</span>
-                  <span className="font-mono text-slate-600">{user.id}</span>
+                  <span className="font-mono text-slate-600">{currentUser.id}</span>
                 </div>
               </div>
             </div>
@@ -393,7 +411,7 @@ export const AdminUserDetailsModal: React.FC<Props> = ({ user, onClose, onUpdate
                 </h4>
                 <p className="text-xs text-slate-600">
                   This will reset the user's used generations counter from{' '}
-                  <strong className="text-slate-900">{user.aiUsage.used}</strong> back to <strong className="text-emerald-600">0</strong>.
+                  <strong className="text-slate-900">{currentUser.aiUsage.used}</strong> back to <strong className="text-emerald-600">0</strong>.
                 </p>
 
                 <div className="flex items-center justify-end gap-2 pt-2">

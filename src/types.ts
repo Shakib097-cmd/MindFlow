@@ -94,6 +94,7 @@ export interface MindEdge {
 export type MapLayout =
   | 'radial'
   | 'tree'
+  | 'tree-vertical'
   | 'left-to-right'
   | 'right-to-left'
   | 'top-to-bottom'
@@ -112,6 +113,7 @@ export interface MindMap {
   isFavorite: boolean;
   isTrash?: boolean;
   layout: MapLayout;
+  shareToken?: string;
   rootNodeId: string;
   tags?: string[];
   nodesCount: number;
@@ -165,7 +167,8 @@ export interface TaskItem {
 
 export interface MilestoneItem {
   id: string;
-  text: string;
+  text?: string;
+  title?: string;
   completed: boolean;
   dueDate?: string;
 }
@@ -176,6 +179,8 @@ export interface GoalItem {
   title: string;
   description?: string;
   deadline?: string;
+  targetDate?: string;
+  status?: string;
   progress: number;
   category?: string;
   milestones: MilestoneItem[];
@@ -222,6 +227,7 @@ export interface NotificationItem {
 
 export interface UsageData {
   userId: string;
+  plan?: PlanType;
   aiGenerationsUsed: number;
   aiGenerationsLimit: number;
   mapsCreated: number;
@@ -338,7 +344,8 @@ export interface QuizQuestion {
   id: string;
   question: string;
   options: string[];
-  answerIndex: number;
+  answerIndex?: number;
+  correctAnswer?: number;
   explanation: string;
 }
 
@@ -503,6 +510,8 @@ export interface AIGenerationLog {
   status: 'success' | 'quota_rejected' | 'failed' | 'timeout';
   durationMs: number;
   tokensEstimate: number;
+  tokensUsed?: number;
+  promptPreview?: string;
   timestamp: number;
   errorCode?: string;
   errorMessage?: string;
@@ -514,6 +523,7 @@ export interface AdminAIUsageMetrics {
   failedRequests: number;
   quotaRejected: number;
   tokensUsedEstimate: number;
+  averageDurationMs?: number;
   byModel: Record<string, number>;
   byFeature: Record<string, number>;
   byPlan: Record<PlanType, number>;
@@ -525,10 +535,12 @@ export interface AdminMapSummary {
   title: string;
   ownerId: string;
   ownerEmail: string;
+  userEmail?: string;
   ownerName: string;
   nodeCount: number;
   edgeCount: number;
   visibility: 'private' | 'link' | 'workspace' | 'public' | 'shared';
+  isPublic?: boolean;
   category?: string;
   isTrash: boolean;
   isFavorite: boolean;
@@ -540,7 +552,7 @@ export interface AdminTemplateRecord {
   id: string;
   title: string;
   description: string;
-  category: 'Business' | 'Study' | 'Productivity' | 'Creative' | 'Planning';
+  category: 'Business' | 'Study' | 'Productivity' | 'Creative' | 'Planning' | 'Strategy' | string;
   nodeCount: number;
   isPremium: boolean;
   isPublished: boolean;
@@ -552,6 +564,7 @@ export interface AdminTemplateRecord {
   authorId: string;
   authorName: string;
   usesCount: number;
+  usageCount?: number;
 }
 
 export interface AdminWorkspaceRecord {
@@ -561,6 +574,7 @@ export interface AdminWorkspaceRecord {
   ownerName: string;
   ownerEmail: string;
   membersCount: number;
+  memberCount?: number;
   mapsCount: number;
   status: 'active' | 'suspended';
   createdAt: number;
@@ -572,6 +586,7 @@ export interface AdminNotificationBroadcast {
   title: string;
   message: string;
   targetType: 'all' | 'free' | 'pro' | 'business' | 'user';
+  targetAudience?: string;
   targetUserId?: string;
   type: 'system' | 'maintenance' | 'feature' | 'security' | 'billing';
   priority: 'low' | 'normal' | 'urgent';
@@ -579,6 +594,7 @@ export interface AdminNotificationBroadcast {
   sentBy: string;
   sentAt: number;
   deliveryCount: number;
+  sentCount?: number;
   readCount: number;
 }
 
@@ -586,6 +602,8 @@ export interface AdminAuditLog {
   id: string;
   adminId: string;
   adminEmail: string;
+  adminRole?: string;
+  userAgent?: string;
   action:
     | 'ADMIN_LOGIN'
     | 'USER_SUSPEND'
@@ -615,6 +633,8 @@ export interface AdminSecurityEvent {
   type: 'UNAUTHORIZED_ACCESS' | 'QUOTA_ABUSE' | 'SUSPICIOUS_LOGIN' | 'RULE_REJECTION' | 'WEBHOOK_FAILURE';
   severity: 'low' | 'medium' | 'high' | 'critical';
   userId?: string;
+  userEmail?: string;
+  description?: string;
   ipAddress?: string;
   details: string;
   timestamp: number;

@@ -27,6 +27,7 @@ import { KeyboardShortcutsModal } from './components/modals/KeyboardShortcutsMod
 import { CookieConsentBanner } from './components/legal/CookieConsentBanner';
 import { FeatureAccessDeniedView } from './components/views/FeatureAccessDeniedView';
 import { hasFeature } from './services/entitlementsService';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import confetti from 'canvas-confetti';
 
 const MainLayout: React.FC = () => {
@@ -34,24 +35,11 @@ const MainLayout: React.FC = () => {
     currentView,
     setCurrentView,
     legalDocId,
-    celebrationTrigger,
     openLegal,
     userManualCategory,
     usage,
   } = useWorkspace();
   const { user, profile } = useAuth();
-
-  // Fire confetti whenever celebration is triggered
-  useEffect(() => {
-    if (celebrationTrigger > 0) {
-      confetti({
-        particleCount: 80,
-        spread: 60,
-        origin: { y: 0.7 },
-        colors: ['#4f46e5', '#7c3aed', '#10b981', '#f59e0b'],
-      });
-    }
-  }, [celebrationTrigger]);
 
   // If on user manual view, render UserManualView
   if (currentView === 'user_manual') {
@@ -123,8 +111,6 @@ const MainLayout: React.FC = () => {
         return <StudyModeView />;
       case 'presentation':
         return <PresentationView />;
-      case 'admin':
-        return <AdminPanel />;
       default:
         return <DashboardView />;
     }
@@ -161,10 +147,12 @@ const MainLayout: React.FC = () => {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <WorkspaceProvider>
-        <MainLayout />
-      </WorkspaceProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <WorkspaceProvider>
+          <MainLayout />
+        </WorkspaceProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

@@ -40,6 +40,7 @@ export const GoalsView: React.FC = () => {
       .map((title) => ({
         id: 'ms-' + Math.random().toString(36).substr(2, 9),
         title,
+        text: title,
         completed: false,
       }));
 
@@ -214,7 +215,7 @@ export const GoalsView: React.FC = () => {
                             className="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer"
                           />
                           <span className={m.completed ? 'line-through text-slate-400' : ''}>
-                            {m.title}
+                            {m.title || m.text}
                           </span>
                         </label>
                       ))}

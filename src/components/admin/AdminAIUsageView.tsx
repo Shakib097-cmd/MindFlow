@@ -23,18 +23,23 @@ export const AdminAIUsageView: React.FC = () => {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
   useEffect(() => {
     async function loadData() {
       setLoading(true);
+      setErrorMsg(null);
       try {
         const [usageRes, logsRes] = await Promise.all([
-          adminService.getAIUsage(adminRole),
-          adminService.getAILogs(100, adminRole),
+          adminService.getAIUsage(adminRole).catch(() => ({ metrics: { totalRequests: 0, successfulRequests: 0, failedRequests: 0, quotaRejected: 0, tokensUsedEstimate: 0, averageDurationMs: 0, byModel: {}, byFeature: {}, byPlan: {} } })),
+          adminService.getAILogs(100, adminRole).catch(() => ({ logs: [] })),
         ]);
-        setMetrics(usageRes?.metrics || null);
+        setMetrics(usageRes?.metrics || { totalRequests: 0, successfulRequests: 0, failedRequests: 0, quotaRejected: 0, tokensUsedEstimate: 0, averageDurationMs: 0, byModel: {}, byFeature: {}, byPlan: {} });
         setLogs(Array.isArray(logsRes?.logs) ? logsRes.logs : []);
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to load AI usage:', err);
+        setErrorMsg(err?.message || 'Failed to fetch');
+        setMetrics({ totalRequests: 0, successfulRequests: 0, failedRequests: 0, quotaRejected: 0, tokensUsedEstimate: 0, averageDurationMs: 0, byModel: {}, byFeature: {}, byPlan: {} });
         setLogs([]);
       } finally {
         setLoading(false);

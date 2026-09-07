@@ -98,12 +98,12 @@ export const PLAN_LIMITS: Record<
   },
 };
 
-export function getDefaultUsageForUser(userId: string, plan: PlanType = 'pro'): UsageData {
-  const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.pro;
-  const monthly = PLAN_MONTHLY_CREDITS[plan] || 500;
-  const topup = plan === 'pro' ? 100 : 0;
+export function getDefaultUsageForUser(userId: string, plan: PlanType = 'business'): UsageData {
+  const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.business;
+  const monthly = PLAN_MONTHLY_CREDITS[plan] || 2000;
+  const topup = 0;
   const used = 0;
-  const balance = monthly + topup - used;
+  const balance = monthly - used;
 
   return {
     userId,
@@ -136,7 +136,17 @@ export function subscribeToFirestoreUsage(
   onUpdate: (usage: UsageData) => void,
   plan: PlanType = 'pro'
 ): () => void {
-  if (!userId) return () => {};
+  if (
+    !userId ||
+    userId === 'current-user' ||
+    userId === 'creator-guest' ||
+    userId === 'demo-user' ||
+    !auth.currentUser ||
+    auth.currentUser.uid !== userId
+  ) {
+    onUpdate(getStoredUsage());
+    return () => {};
+  }
 
   const docPath = `usage/${userId}`;
   const usageDocRef = doc(db, 'usage', userId);
@@ -156,10 +166,10 @@ export function subscribeToFirestoreUsage(
           let periodEnd = data.periodEnd || Date.parse('2026-09-20T23:59:59Z');
           let aiUsed = Number(data.aiGenerationsUsed ?? 0);
           let creditsUsed = Number(data.creditsUsed ?? aiUsed);
-          let topup = Number(data.topupCredits ?? (plan === 'pro' ? 100 : 0));
+          let topup = 0;
           let balance = typeof data.creditsBalance === 'number' && data.creditsBalance > 0
             ? data.creditsBalance
-            : Math.max(0, monthly - creditsUsed) + topup;
+            : Math.max(0, monthly - creditsUsed);
 
           if (periodEnd < now) {
             // New monthly billing cycle rollover
@@ -167,7 +177,7 @@ export function subscribeToFirestoreUsage(
             periodEnd = now + 86400000 * 30;
             aiUsed = 0;
             creditsUsed = 0;
-            balance = monthly + topup; // Rollover retains unexpired topup credits
+            balance = monthly;
             try {
               await setDoc(
                 usageDocRef,

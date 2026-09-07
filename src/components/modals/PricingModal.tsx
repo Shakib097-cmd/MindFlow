@@ -93,24 +93,6 @@ export const PricingModal: React.FC = () => {
         'Cloud Firestore backup & sync',
       ],
       buttonText: currentPlan === 'pro' ? 'Current Plan' : 'Upgrade to Pro',
-      popular: true,
-    },
-    {
-      id: 'business' as PlanType,
-      name: 'Team & Business',
-      price: '$49',
-      period: 'per month',
-      description: 'Advanced team collaboration, custom branding, and team workspace.',
-      features: [
-        'Everything in Pro plan',
-        'Unlimited AI Generations',
-        'Real-time Multi-user collaboration',
-        'Custom template builder',
-        'Team Folders & Shared Workspaces',
-        'Dedicated Priority Support',
-        'Custom Enterprise SSO & Exports',
-      ],
-      buttonText: currentPlan === 'business' ? 'Current Plan' : 'Upgrade to Business',
       popular: false,
     },
   ];
@@ -141,24 +123,15 @@ export const PricingModal: React.FC = () => {
           </button>
         </div>
 
-        {/* 3 Pricing Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {/* 2 Pricing Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
           {PLANS.map((p) => {
             const isCurrent = currentPlan === p.id;
             return (
               <div
                 key={p.id}
-                className={`rounded-3xl p-6 border flex flex-col justify-between transition-all relative ${
-                  p.popular
-                    ? 'border-indigo-600 shadow-xl ring-2 ring-indigo-500/20 bg-indigo-50/20'
-                    : 'border-slate-200 bg-white shadow-xs'
-                }`}
+                className="rounded-3xl p-6 border border-slate-200 bg-white shadow-xs flex flex-col justify-between transition-all relative"
               >
-                {p.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-indigo-600 text-white text-[10px] uppercase font-bold tracking-wider px-3 py-0.5 rounded-full shadow-xs">
-                    Most Popular
-                  </div>
-                )}
 
                 <div>
                   <h3 className="font-bold text-base text-slate-900 mb-1">{p.name}</h3>

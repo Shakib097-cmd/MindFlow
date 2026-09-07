@@ -18,6 +18,10 @@ import {
   initializeFirestore,
   persistentLocalCache,
   persistentMultipleTabManager,
+  setLogLevel,
+  enableNetwork,
+  disableNetwork,
+  getDocFromServer,
   collection,
   doc,
   setDoc,
@@ -50,7 +54,7 @@ export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
-// Get Firestore safely
+// Get Firestore safely with database ID support
 let firestoreInstance;
 try {
   firestoreInstance = getFirestore(app, firebaseConfigData.firestoreDatabaseId || undefined);
@@ -59,6 +63,49 @@ try {
 }
 
 export const db = firestoreInstance;
+
+// Set Firestore log level to silent to prevent internal network reconnect logs from bubbling up
+try {
+  setLogLevel('silent');
+} catch {
+  // Ignore in environments where setLogLevel is restricted
+}
+
+// Graceful network state management for Firestore
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    try {
+      enableNetwork(db).catch(() => {});
+    } catch {}
+  });
+  window.addEventListener('offline', () => {
+    try {
+      disableNetwork(db).catch(() => {});
+    } catch {}
+  });
+
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    try {
+      disableNetwork(db).catch(() => {});
+    } catch {}
+  }
+}
+
+// Validate connection to Firestore on initial boot
+async function testConnection() {
+  try {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+    await getDocFromServer(doc(db, 'test', 'connection'));
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('the client is offline')) {
+      console.warn('Firebase Firestore is operating in offline mode.');
+    }
+  }
+}
+
+if (typeof window !== 'undefined') {
+  testConnection();
+}
 
 export {
   signInWithPopup,
@@ -69,6 +116,10 @@ export {
   getIdTokenResult,
   getIdToken,
   reload,
+  enableNetwork,
+  disableNetwork,
+  setLogLevel,
+  getDocFromServer,
   collection,
   doc,
   setDoc,

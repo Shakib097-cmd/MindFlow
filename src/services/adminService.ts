@@ -52,11 +52,19 @@ async function getAdminHeaders(overrideRole?: AdminRole): Promise<Record<string,
 }
 
 async function handleResponse<T>(res: Response): Promise<T> {
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || errorData.error || `Admin API error (${res.status})`);
+  const text = await res.text();
+  let data: any = {};
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    if (!res.ok) {
+      throw new Error(`Admin API error (${res.status}): ${text.includes('<!doctype') ? 'Server returned HTML page instead of JSON' : text.substring(0, 100)}`);
+    }
   }
-  return res.json();
+  if (!res.ok) {
+    throw new Error(data.message || data.error || `Admin API error (${res.status})`);
+  }
+  return data as T;
 }
 
 export const adminService = {

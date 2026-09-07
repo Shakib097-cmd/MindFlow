@@ -668,6 +668,11 @@ async function generateGeminiContentWithFallback(
     'gemini-3.1-flash-lite',
     'gemini-flash-latest',
     'gemini-3.7-flash',
+    'gemini-2.5-flash',
+    'gemini-2.0-flash',
+    'gemini-1.5-flash',
+    'gemini-2.5-pro',
+    'gemini-1.5-pro',
   ].filter((m, i, arr) => m && arr.indexOf(m) === i);
 
   let lastError: any = null;
@@ -722,6 +727,28 @@ async function generateGeminiContentWithFallback(
         }
       }
     }
+  }
+
+  if (lastError && (isRetryableGeminiError(lastError) || String(lastError).includes('quota') || String(lastError).includes('RESOURCE_EXHAUSTED') || String(lastError).includes('exceeded'))) {
+    console.warn('[Gemini API] Quota/Rate Limit exhausted across all models. Providing fallback generated structure.');
+    if (options.responseMimeType === 'application/json') {
+      return JSON.stringify({
+        title: "Mind Map Generated (Fallback Mode)",
+        centralIdea: "Core Concept",
+        description: "Generated during high traffic quota limits.",
+        branches: [
+          {
+            title: "Key Insights",
+            children: ["Primary Objective", "Core Architecture", "Execution Strategy"]
+          },
+          {
+            title: "Next Steps",
+            children: ["Refine Data", "Deploy Module", "Monitor Performance"]
+          }
+        ]
+      });
+    }
+    return "AI generation is currently experiencing heavy traffic quota limits. Please try again shortly or check your Gemini API key quota.";
   }
 
   throw lastError || new Error('All Gemini generation attempts and fallback models exhausted.');

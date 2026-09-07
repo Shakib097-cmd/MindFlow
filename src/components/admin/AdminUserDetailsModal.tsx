@@ -50,6 +50,7 @@ export const AdminUserDetailsModal: React.FC<Props> = ({ user, onClose, onUpdate
     try {
       const nextStatus = isSuspended ? 'active' : 'suspended';
       await adminService.updateUserStatus(user.id, nextStatus, suspendReason || 'Admin console action', adminRole);
+      window.dispatchEvent(new CustomEvent('mindflow_admin_update', { detail: { userId: user.id } }));
       setStatusMessage({ text: `User status changed to ${nextStatus}`, isError: false });
       setTimeout(() => {
         onUpdated();
@@ -68,6 +69,7 @@ export const AdminUserDetailsModal: React.FC<Props> = ({ user, onClose, onUpdate
     setStatusMessage(null);
     try {
       await adminService.updateUserPlan(user.id, selectedPlan, planReason || 'Plan override via Admin Console', adminRole);
+      window.dispatchEvent(new CustomEvent('mindflow_admin_update', { detail: { userId: user.id } }));
       setStatusMessage({ text: `Plan updated to ${(selectedPlan || '').toUpperCase()}`, isError: false });
       setTimeout(() => {
         onUpdated();
@@ -86,6 +88,7 @@ export const AdminUserDetailsModal: React.FC<Props> = ({ user, onClose, onUpdate
     setStatusMessage(null);
     try {
       await adminService.resetUserUsage(user.id, 'AI quota reset via Admin Console', adminRole);
+      window.dispatchEvent(new CustomEvent('mindflow_admin_update', { detail: { userId: user.id } }));
       setStatusMessage({ text: 'AI generation quota reset to 0/0', isError: false });
       setTimeout(() => {
         onUpdated();

@@ -201,18 +201,6 @@ export const AIUsageProgressBar: React.FC<AIUsageProgressBarProps> = ({
               {/* Action Buttons */}
               <div className="flex items-center gap-2">
                 <button
-                  id="popover-topup-btn"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowPopover(false);
-                    setIsCreditTopUpOpen(true);
-                  }}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
-                >
-                  <Zap className="w-3.5 h-3.5 fill-white text-white" />
-                  <span>Top Up Credits</span>
-                </button>
-                <button
                   id="popover-upgrade-btn"
                   onClick={handleUpgradeClick}
                   className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
@@ -260,18 +248,6 @@ export const AIUsageProgressBar: React.FC<AIUsageProgressBarProps> = ({
             <span className="text-[11px] font-bold font-mono text-slate-700">
               {creditsBalance} <span className="text-[10px] font-normal text-slate-400">pts</span>
             </span>
-            {isCreditsDepleted && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsCreditTopUpOpen(true);
-                }}
-                className="px-1.5 py-0.5 text-[9px] font-bold bg-rose-600 hover:bg-rose-700 text-white rounded cursor-pointer animate-pulse"
-              >
-                Top Up
-              </button>
-            )}
           </div>
         </div>
 
@@ -285,16 +261,6 @@ export const AIUsageProgressBar: React.FC<AIUsageProgressBarProps> = ({
         {showDetails && (
           <div className="flex items-center justify-between text-[10px] text-slate-500">
             <span>{isCreditsDepleted ? '0 credits left' : `${creditsBalance} credits left`}</span>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsCreditTopUpOpen(true);
-              }}
-              className="font-semibold text-indigo-600 hover:underline cursor-pointer"
-            >
-              + Top Up
-            </button>
           </div>
         )}
       </div>

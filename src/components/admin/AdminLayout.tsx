@@ -128,17 +128,7 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
           })}
         </nav>
 
-        {/* Bottom Switch to User Workspace */}
-        <div className="p-3 border-t border-slate-200 bg-white">
-          <button
-            id="exit-admin-panel-btn"
-            onClick={() => setCurrentView('dashboard')}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200/80 text-slate-700 text-xs font-semibold transition border border-slate-200"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Return to User Workspace</span>
-          </button>
-        </div>
+
       </aside>
 
       {/* Main Container */}
@@ -240,16 +230,7 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
                 );
               })}
             </nav>
-            <button
-              onClick={() => {
-                setCurrentView('dashboard');
-                setMobileMenuOpen(false);
-              }}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-slate-100 text-slate-700 text-xs font-semibold border border-slate-200"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Return to User Workspace</span>
-            </button>
+
           </div>
         </div>
       )}

@@ -57,6 +57,22 @@ export function useAdminStats(): AdminStatsResult {
     let isMounted = true;
     const unsubscribes: Array<() => void> = [];
 
+    // Adhere strictly to skill: Only attach onSnapshot listeners if user is authenticated
+    if (!user || !user.uid) {
+      setLoading(false);
+      return;
+    }
+
+    const isAuthorized =
+      user.email?.toLowerCase() === 'starcybercafe097@gmail.com' ||
+      adminRole === 'SUPER_ADMIN' ||
+      adminRole === 'ADMIN';
+
+    if (!isAuthorized) {
+      setLoading(false);
+      return;
+    }
+
     // Listener for /users
     try {
       const usersColRef = collection(db, 'users');

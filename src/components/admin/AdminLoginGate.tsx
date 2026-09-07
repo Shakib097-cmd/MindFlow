@@ -13,7 +13,7 @@ export const AdminLoginGate: React.FC<AdminLoginGateProps> = ({ onSuccess }) => 
   const { user, profile, signInWithGoogle, signInWithEmail, loginAsAdmin, signOut } = useAuth();
   const { setCurrentView } = useWorkspace();
 
-  const [email, setEmail] = useState(AUTHORIZED_ADMIN_EMAIL);
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -120,8 +120,7 @@ export const AdminLoginGate: React.FC<AdminLoginGateProps> = ({ onSuccess }) => 
           <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-start gap-3 text-xs">
             <Lock className="w-4 h-4 text-indigo-600 mt-0.5 shrink-0" />
             <div className="text-slate-600 leading-relaxed">
-              Access is strictly restricted. Only the verified administrator account (
-              <span className="font-semibold text-slate-900">{AUTHORIZED_ADMIN_EMAIL}</span>) is permitted.
+              Access is strictly restricted. Only verified administrator accounts are permitted.
             </div>
           </div>
 
@@ -165,7 +164,7 @@ export const AdminLoginGate: React.FC<AdminLoginGateProps> = ({ onSuccess }) => 
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
                 <ShieldCheck className="w-4 h-4 text-indigo-600" />
-                Master Account: {AUTHORIZED_ADMIN_EMAIL}
+                Master Administrator Portal
               </span>
               <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-indigo-200/80 text-indigo-800 font-bold">
                 Owner
@@ -236,7 +235,7 @@ export const AdminLoginGate: React.FC<AdminLoginGateProps> = ({ onSuccess }) => 
                   id="admin-email-input"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder={AUTHORIZED_ADMIN_EMAIL}
+                  placeholder="admin@domain.com"
                   required
                   className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 text-slate-800"
                 />
@@ -273,16 +272,8 @@ export const AdminLoginGate: React.FC<AdminLoginGateProps> = ({ onSuccess }) => 
           </form>
         </div>
 
-        {/* Footer Back Link */}
-        <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs">
-          <button
-            type="button"
-            onClick={() => setCurrentView('dashboard')}
-            className="flex items-center gap-1.5 text-slate-600 hover:text-slate-900 font-medium transition cursor-pointer"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Return to User Workspace</span>
-          </button>
+        {/* Footer */}
+        <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end text-xs">
           <span className="text-[10px] text-slate-400 font-mono">v2.4 Secured</span>
         </div>
       </div>

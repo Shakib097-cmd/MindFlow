@@ -209,12 +209,6 @@ export const LandingView: React.FC = () => {
               Templates
             </button>
             <button
-              onClick={() => scrollToSection('pricing')}
-              className="px-3.5 py-2 rounded-xl hover:text-indigo-600 hover:bg-slate-100/80 transition-colors"
-            >
-              Pricing
-            </button>
-            <button
               onClick={() => openUserManual('getting-started')}
               className="px-3.5 py-2 rounded-xl text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 transition-colors flex items-center gap-1.5"
             >
@@ -294,12 +288,6 @@ export const LandingView: React.FC = () => {
                 className="text-left px-3 py-2 rounded-lg hover:bg-slate-100"
               >
                 Templates
-              </button>
-              <button
-                onClick={() => scrollToSection('pricing')}
-                className="text-left px-3 py-2 rounded-lg hover:bg-slate-100"
-              >
-                Pricing
               </button>
             </div>
             <div className="pt-2 border-t border-slate-100 flex flex-col gap-2">
@@ -1018,7 +1006,7 @@ export const LandingView: React.FC = () => {
             </div>
           </div>
 
-          <div className="mt-14 grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
+          <div className="mt-14 grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch max-w-3xl mx-auto">
             {/* Free Tier */}
             <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-xs flex flex-col justify-between">
               <div>
@@ -1055,11 +1043,8 @@ export const LandingView: React.FC = () => {
               </button>
             </div>
 
-            {/* Pro Tier (Highlighted) */}
-            <div className="bg-white rounded-3xl p-8 border-2 border-indigo-600 shadow-xl relative flex flex-col justify-between">
-              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-indigo-600 text-white text-[10px] font-bold uppercase tracking-wider shadow-sm">
-                Most Popular
-              </div>
+            {/* Pro Tier */}
+            <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-xs relative flex flex-col justify-between">
               <div>
                 <h3 className="text-lg font-bold text-slate-900 mb-1">Professional</h3>
                 <p className="text-xs text-slate-500 mb-6">Unlimited AI power & deep reasoning.</p>
@@ -1095,43 +1080,6 @@ export const LandingView: React.FC = () => {
                 className="mt-8 w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md transition-all cursor-pointer"
               >
                 Get Pro Access
-              </button>
-            </div>
-
-            {/* Team Tier */}
-            <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-xs flex flex-col justify-between">
-              <div>
-                <h3 className="text-lg font-bold text-slate-900 mb-1">Team & Enterprise</h3>
-                <p className="text-xs text-slate-500 mb-6">Collaborative workspaces & admin controls.</p>
-                <div className="mb-6">
-                  <span className="text-4xl font-extrabold text-slate-900">
-                    {billingCycle === 'annual' ? '$32' : '$39'}
-                  </span>
-                  <span className="text-xs text-slate-400 ml-1">/ seat / month</span>
-                </div>
-                <div className="space-y-3 text-xs text-slate-700">
-                  <div className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600" /> Everything in Pro Plan
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600" /> Multi-user live collaboration
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600" /> Shared team workspace & folders
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600" /> Priority 24/7 Support
-                  </div>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setAuthMode('signup');
-                  setShowAuthModal(true);
-                }}
-                className="mt-8 w-full py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 font-bold text-xs transition-colors cursor-pointer"
-              >
-                Contact Sales
               </button>
             </div>
           </div>
@@ -1229,6 +1177,7 @@ export const LandingView: React.FC = () => {
       <GlobalLegalFooter
         onNavigateLegal={(docId) => openLegal(docId)}
         onOpenCookiePreferences={() => setShowCookieModal(true)}
+        onAdminLogin={() => setCurrentView('admin')}
       />
 
       {/* Cookie Consent Banner & Modal */}

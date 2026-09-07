@@ -30,12 +30,12 @@ export function useEntitlement() {
   const usage = workspaceContext?.usage ?? null;
 
   // Determine current active plan & subscription status
-  const currentPlan: PlanType = profile?.plan || 'pro';
+  const currentPlan: PlanType = profile?.plan || 'business';
   const subscriptionStatus: string = (usage as any)?.subscriptionStatus || (profile as any)?.subscriptionStatus || 'active';
 
   // Authoritative credit stats
   const monthlyCredits: number = usage?.monthlyCredits ?? (currentPlan === 'business' ? 2000 : currentPlan === 'pro' ? 500 : 25);
-  const topupCredits: number = usage?.topupCredits !== undefined ? usage.topupCredits : (currentPlan === 'pro' ? 100 : 0);
+  const topupCredits: number = 0;
   const creditsUsed: number = usage?.creditsUsed ?? usage?.aiGenerationsUsed ?? 0;
 
   // Calculate authoritative credit balance
@@ -43,8 +43,8 @@ export function useEntitlement() {
     if (typeof usage?.creditsBalance === 'number' && usage.creditsBalance > 0) {
       return usage.creditsBalance;
     }
-    return Math.max(0, monthlyCredits + topupCredits - creditsUsed);
-  }, [usage, monthlyCredits, topupCredits, creditsUsed]);
+    return Math.max(0, monthlyCredits - creditsUsed);
+  }, [usage, monthlyCredits, creditsUsed]);
 
   const isZeroCredits = creditsBalance <= 0;
 

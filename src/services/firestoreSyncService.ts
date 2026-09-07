@@ -64,12 +64,21 @@ export interface DBConnectionTestResult {
 
 export async function checkFirestoreConnection(): Promise<boolean> {
   try {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      return false;
+    }
     if (!auth.currentUser) return true; // Offline / Guest mode is considered gracefully operational
     const testDocRef = doc(db, 'usage', auth.currentUser.uid);
     await getDocFromServer(testDocRef);
     return true;
   } catch (err: any) {
-    if (err?.message?.includes('the client is offline') || err?.code === 'unavailable') {
+    if (
+      err?.message?.includes('the client is offline') ||
+      err?.code === 'unavailable' ||
+      err?.message?.includes('network-request-failed') ||
+      err?.code === 'auth/network-request-failed' ||
+      err?.message?.includes('Fetching auth token failed')
+    ) {
       return false;
     }
     return true;

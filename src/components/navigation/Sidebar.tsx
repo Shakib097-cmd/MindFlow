@@ -102,11 +102,11 @@ export const Sidebar: React.FC = () => {
   const planEntitlementsLabel = `${planDisplayName} Entitlements`;
 
   const monthlyCredits = usage?.monthlyCredits ?? 500;
-  const topupCredits = usage?.topupCredits ?? 100;
+  const topupCredits = 0;
   const creditsUsed = usage?.creditsUsed ?? 15;
-  const creditsBalance = usage?.creditsBalance ?? Math.max(0, monthlyCredits + topupCredits - creditsUsed);
+  const creditsBalance = usage?.creditsBalance ?? Math.max(0, monthlyCredits - creditsUsed);
 
-  const totalMax = Math.max(monthlyCredits + topupCredits, 1);
+  const totalMax = Math.max(monthlyCredits, 1);
   const capacityPercent = Math.min(100, Math.max(0, Math.round((creditsBalance / totalMax) * 100)));
 
   const isCritical = creditsBalance <= Math.max(1, totalMax * 0.1);
@@ -442,37 +442,7 @@ export const Sidebar: React.FC = () => {
           )}
         </div>
 
-        {/* Account & Settings Group */}
-        <div>
-          <div className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-            Preferences
-          </div>
-          <div className="space-y-0.5">
-            <button
-              id="sidebar-settings-nav"
-              onClick={() => {
-                setIsSettingsOpen(true);
-                setIsMobileMenuOpen(false);
-              }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer"
-            >
-              <Settings className="w-4 h-4 text-slate-500" />
-              <span>Settings</span>
-            </button>
 
-            <button
-              id="sidebar-profile-nav"
-              onClick={() => {
-                setIsSettingsOpen(true);
-                setIsMobileMenuOpen(false);
-              }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer"
-            >
-              <User className="w-4 h-4 text-indigo-500" />
-              <span>Profile</span>
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* Sidebar Footer: Plan & AI Credits Balance Card */}
@@ -527,35 +497,19 @@ export const Sidebar: React.FC = () => {
             {/* Capacity & Usage Breakdown */}
             <div className="flex items-center justify-between text-[11px] text-slate-500 pt-0.5">
               <span>{capacityPercent}% capacity available</span>
-              <div className="flex items-center gap-1">
-                <span>Used: {creditsUsed}</span>
-                {topupCredits > 0 && (
-                  <span className="text-indigo-600 font-bold">(+{topupCredits} top-up)</span>
-                )}
-              </div>
+              <span>Used: {creditsUsed}</span>
             </div>
           </div>
 
-          {/* Action Buttons: Top Up & Manage Plan */}
-          <div className="pt-1 flex items-center gap-2">
-            <button
-              id="sidebar-topup-btn"
-              onClick={() => {
-                setIsCreditTopUpOpen(true);
-                setIsMobileMenuOpen(false);
-              }}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
-            >
-              <Zap className="w-3.5 h-3.5 fill-white text-white" />
-              <span>Top Up</span>
-            </button>
+          {/* Action Buttons: Manage Plan */}
+          <div className="pt-1">
             <button
               id="sidebar-manage-plan-btn"
               onClick={() => {
                 setIsPricingOpen(true);
                 setIsMobileMenuOpen(false);
               }}
-              className="flex-1 flex items-center justify-center gap-1 py-2 px-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+              className="w-full flex items-center justify-center gap-1 py-2 px-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
             >
               <Crown className="w-3.5 h-3.5 text-slate-500" />
               <span>Manage Plan</span>

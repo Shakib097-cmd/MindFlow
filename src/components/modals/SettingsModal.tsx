@@ -1,5 +1,5 @@
 import { UNLIMITED_USAGE } from '../../lib/config';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import { useAuth } from '../../context/AuthContext';
 import { useEntitlement } from '../../hooks/useEntitlement';
@@ -49,6 +49,30 @@ export const SettingsModal: React.FC = () => {
     isZeroCredits,
   } = useEntitlement();
 
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editName, setEditName] = useState(profile?.name || '');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  useEffect(() => {
+    if (isEditingProfile) {
+      setEditName(profile?.name || '');
+    }
+  }, [isEditingProfile, profile?.name]);
+
+  const handleSaveProfile = async () => {
+    setIsSavingProfile(true);
+    try {
+      if (typeof (useAuth as any)().updateProfile === 'function') {
+         await (useAuth as any)().updateProfile({ name: editName });
+      }
+      setIsEditingProfile(false);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
   const effectivePlan = profile?.plan || 'pro';
   const rawStatus = (profile as any)?.subscriptionStatus || (usage as any)?.subscriptionStatus || 'active';
   const isSubscriptionActive = !['past_due', 'cancelled', 'expired'].includes(rawStatus);
@@ -67,7 +91,7 @@ export const SettingsModal: React.FC = () => {
     return '20 Sept 2026';
   }, [usage?.periodEnd]);
 
-  const totalCreditCapacity = Math.max(1, monthlyCredits + (topupCredits > 0 ? topupCredits : 0));
+  const totalCreditCapacity = Math.max(1, monthlyCredits);
   const creditUsagePercent = Math.min(100, Math.max(0, Math.round((creditsBalance / totalCreditCapacity) * 100)));
 
   if (!isSettingsOpen) return null;
@@ -140,7 +164,7 @@ export const SettingsModal: React.FC = () => {
             }`}
           >
             <User className="w-3.5 h-3.5" />
-            <span>Account & Plan</span>
+            <span>{showPlanAndCredits ? 'Account & Plan' : 'Account'}</span>
           </button>
 
           <button
@@ -203,17 +227,6 @@ export const SettingsModal: React.FC = () => {
                       {/* Actions */}
                       <div className="flex items-center gap-2 shrink-0">
                         <button
-                          id="settings-hero-topup-btn"
-                          onClick={() => {
-                            setIsSettingsOpen(false);
-                            setIsCreditTopUpOpen(true);
-                          }}
-                          className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1 cursor-pointer"
-                        >
-                          <Zap className="w-3.5 h-3.5 fill-white" />
-                          <span>Top Up</span>
-                        </button>
-                        <button
                           id="settings-hero-manage-btn"
                           onClick={() => {
                             setIsSettingsOpen(false);
@@ -251,10 +264,7 @@ export const SettingsModal: React.FC = () => {
                       </div>
                       <div className="flex items-center justify-between text-[10px] text-slate-500">
                         <span className="font-medium text-slate-600">{creditUsagePercent}% capacity available</span>
-                        <div className="flex items-center gap-2">
-                          <span>Used: {creditsUsed}</span>
-                          {topupCredits > 0 && <span className="text-indigo-600 font-bold">(+{topupCredits} top-up)</span>}
-                        </div>
+                        <span>Used: {creditsUsed}</span>
                       </div>
                     </div>
                   </div>
@@ -343,135 +353,166 @@ export const SettingsModal: React.FC = () => {
           {/* TAB 2: ACCOUNT & PLAN */}
           {activeTab === 'account' && (
             <div className="space-y-5">
-              <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200">
-                <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-base">
-                  {profile?.name
-                    ? profile.name
-                        .trim()
-                        .split(/\s+/)
-                        .filter(Boolean)
-                        .map((n) => n[0] || '')
-                        .join('')
-                        .toUpperCase()
-                        .slice(0, 2) || 'MF'
-                    : 'MF'}
+              <div className="flex items-start justify-between p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                <div className="flex items-center gap-4 flex-1 min-w-0">
+                  <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-base shrink-0">
+                    {profile?.name
+                      ? profile.name
+                          .trim()
+                          .split(/\s+/)
+                          .filter(Boolean)
+                          .map((n) => n[0] || '')
+                          .join('')
+                          .toUpperCase()
+                          .slice(0, 2) || 'MF'
+                      : 'MF'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    {isEditingProfile ? (
+                      <div className="flex flex-col gap-2">
+                        <input
+                          type="text"
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          className="w-full text-sm font-bold text-slate-900 bg-white border border-slate-300 rounded-lg px-2 py-1 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                          placeholder="Your Name"
+                          disabled={isSavingProfile}
+                        />
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={handleSaveProfile}
+                            disabled={isSavingProfile || !editName.trim()}
+                            className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs rounded-md font-medium disabled:opacity-50"
+                          >
+                            {isSavingProfile ? 'Saving...' : 'Save'}
+                          </button>
+                          <button
+                            onClick={() => setIsEditingProfile(false)}
+                            disabled={isSavingProfile}
+                            className="px-3 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs rounded-md font-medium"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <div className="text-sm font-bold text-slate-900 truncate">
+                            {profile?.name || 'MindFlow User'}
+                          </div>
+                          <button
+                            onClick={() => setIsEditingProfile(true)}
+                            className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                          >
+                            Edit
+                          </button>
+                        </div>
+                        <div className="text-xs text-slate-500 truncate">
+                          {profile?.email || 'Registered User'}
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                          User ID: {profile?.id || user?.uid || 'user-local'}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-bold text-slate-900 truncate">
-                    {profile?.name || 'MindFlow User'}
-                  </div>
-                  <div className="text-xs text-slate-500 truncate">
-                    {profile?.email || 'Registered User'}
-                  </div>
-                  <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                    User ID: {profile?.id || user?.uid || 'user-local'}
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    setIsSettingsOpen(false);
-                    setIsPricingOpen(true);
-                  }}
-                  className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
-                >
-                  Change Plan
-                </button>
+                {showPlanAndCredits && !isEditingProfile && (
+                  <button
+                    onClick={() => {
+                      setIsSettingsOpen(false);
+                      setIsPricingOpen(true);
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                  >
+                    Change Plan
+                  </button>
+                )}
               </div>
 
               {/* PRIMARY PRO PLAN & AI CREDITS BALANCE CARD IN ACCOUNT TAB */}
-              <div
-                id="settings-account-plan-credits-hero"
-                className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs relative overflow-hidden space-y-4"
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-3.5">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 shadow-xs">
-                      <Crown className="w-5 h-5 text-indigo-600" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-bold text-slate-900 uppercase">
-                          {effectivePlan} Plan
-                        </h3>
-                        <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                            isSubscriptionActive
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                              : 'bg-rose-50 text-rose-700 border-rose-200'
-                          }`}
-                        >
+              {showPlanAndCredits && (
+                <div
+                  id="settings-account-plan-credits-hero"
+                  className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs relative overflow-hidden space-y-4"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 shadow-xs">
+                        <Crown className="w-5 h-5 text-indigo-600" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-bold text-slate-900 uppercase">
+                            {effectivePlan} Plan
+                          </h3>
                           <span
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              isSubscriptionActive ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                              isSubscriptionActive
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : 'bg-rose-50 text-rose-700 border-rose-200'
                             }`}
-                          />
-                          {statusLabel}
-                        </span>
+                          >
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                isSubscriptionActive ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
+                              }`}
+                            />
+                            {statusLabel}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-500 mt-0.5">
+                          Renewal: {renewalDateString} • {effectivePlan === 'free' ? 'Starter Quota' : 'Pro Entitlements'}
+                        </div>
                       </div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">
-                        Renewal: {renewalDateString} • {effectivePlan === 'free' ? 'Starter Quota' : 'Pro Entitlements'}
-                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        id="settings-account-manage-btn"
+                        onClick={() => {
+                          setIsSettingsOpen(false);
+                          setIsPricingOpen(true);
+                        }}
+                        className="px-3.5 py-1.5 border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded-xl transition-colors cursor-pointer"
+                      >
+                        Manage Plan
+                      </button>
                     </div>
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      id="settings-account-topup-btn"
-                      onClick={() => {
-                        setIsSettingsOpen(false);
-                        setIsCreditTopUpOpen(true);
-                      }}
-                      className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1 cursor-pointer"
-                    >
-                      <Zap className="w-3.5 h-3.5 fill-white" />
-                      <span>Top Up</span>
-                    </button>
-                    <button
-                      id="settings-account-manage-btn"
-                      onClick={() => {
-                        setIsSettingsOpen(false);
-                        setIsPricingOpen(true);
-                      }}
-                      className="px-3.5 py-1.5 border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded-xl transition-colors cursor-pointer"
-                    >
-                      Manage Plan
-                    </button>
-                  </div>
-                </div>
-
-                {/* AI Credits Bar */}
-                <div className="bg-slate-50/90 rounded-xl p-3 border border-slate-200/80 space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-slate-800 flex items-center gap-1 text-[11px]">
-                      <Zap className="w-3 h-3 text-indigo-600 fill-indigo-600" />
-                      AI Credits Balance
-                    </span>
-                    <span className="font-black font-mono text-slate-900 text-xs">
-                      {creditsBalance} <span className="text-slate-400 font-normal">/ {monthlyCredits}</span>
-                    </span>
-                  </div>
-                  <div className="w-full h-2 bg-slate-200/80 rounded-full overflow-hidden">
-                    <div
-                      style={{ width: `${creditUsagePercent}%` }}
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        isZeroCredits
-                          ? 'bg-rose-500'
-                          : creditUsagePercent <= 15
-                          ? 'bg-amber-500'
-                          : 'bg-indigo-600'
-                      }`}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between text-[10px] text-slate-500">
-                    <span className="font-medium text-slate-600">{creditUsagePercent}% capacity available</span>
-                    <div className="flex items-center gap-2">
+                  {/* AI Credits Bar */}
+                  <div className="bg-slate-50/90 rounded-xl p-3 border border-slate-200/80 space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-slate-800 flex items-center gap-1 text-[11px]">
+                        <Zap className="w-3 h-3 text-indigo-600 fill-indigo-600" />
+                        AI Credits Balance
+                      </span>
+                      <span className="font-black font-mono text-slate-900 text-xs">
+                        {creditsBalance} <span className="text-slate-400 font-normal">/ {monthlyCredits}</span>
+                      </span>
+                    </div>
+                    <div className="w-full h-2 bg-slate-200/80 rounded-full overflow-hidden">
+                      <div
+                        style={{ width: `${creditUsagePercent}%` }}
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          isZeroCredits
+                            ? 'bg-rose-500'
+                            : creditUsagePercent <= 15
+                            ? 'bg-amber-500'
+                            : 'bg-indigo-600'
+                        }`}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-slate-500">
+                      <span className="font-medium text-slate-600">{creditUsagePercent}% capacity available</span>
                       <span>Used: {creditsUsed}</span>
-                      {topupCredits > 0 && <span className="text-indigo-600 font-bold">(+{topupCredits} top-up)</span>}
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* Sign Out Button in Account Tab */}
               <button

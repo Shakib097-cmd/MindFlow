@@ -5,12 +5,14 @@ import { Sparkles, ShieldCheck, Lock, ExternalLink, BookOpen } from 'lucide-reac
 interface GlobalLegalFooterProps {
   onNavigateLegal?: (docId: LegalDocId) => void;
   onOpenCookiePreferences?: () => void;
+  onAdminLogin?: () => void;
   currentDocId?: LegalDocId;
 }
 
 export const GlobalLegalFooter: React.FC<GlobalLegalFooterProps> = ({
   onNavigateLegal,
   onOpenCookiePreferences,
+  onAdminLogin,
   currentDocId,
 }) => {
   const handleLinkClick = (e: React.MouseEvent, docId: LegalDocId, route: string) => {
@@ -112,6 +114,23 @@ export const GlobalLegalFooter: React.FC<GlobalLegalFooterProps> = ({
                 Manage Cookie Preferences
               </button>
             )}
+            <span className="text-slate-700">•</span>
+            <button
+              type="button"
+              onClick={() => {
+                if (onAdminLogin) {
+                  onAdminLogin();
+                } else {
+                  window.history.pushState({}, '', '/admin');
+                  window.dispatchEvent(new PopStateEvent('popstate'));
+                }
+              }}
+              className="text-slate-400 hover:text-indigo-400 transition-colors cursor-pointer flex items-center gap-1 font-mono text-[11px]"
+              title="Restricted Administrator Portal"
+            >
+              <Lock className="w-3 h-3 text-indigo-400" />
+              <span>Admin Login</span>
+            </button>
             <span className="text-slate-700">•</span>
             <span className="text-slate-500">
               Last Regulatory Audit: Sept 2026

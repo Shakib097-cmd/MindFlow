@@ -74,6 +74,13 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
   useEffect(() => {
     if (!effectiveUserId) return;
 
+    // Strict Skill Directive: Only attach onSnapshot listeners if user is authenticated with Firebase Auth
+    if (!user || !user.uid || effectiveUserId === 'creator-guest' || effectiveUserId === 'current-user') {
+      setIsLoading(false);
+      setUsageData(contextUsage || getDefaultUsageForUser(effectiveUserId, effectivePlan));
+      return;
+    }
+
     const docPath = `usage/${effectiveUserId}`;
     const usageDocRef = doc(db, 'usage', effectiveUserId);
 
@@ -88,11 +95,11 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
             const now = Date.now();
 
             const monthly = Number(data.monthlyCredits || PLAN_MONTHLY_CREDITS[effectivePlan] || 500);
-            const topup = Number(data.topupCredits ?? (effectivePlan === 'pro' ? 100 : 0));
+            const topup = 0;
             const usedCredits = Number(data.creditsUsed ?? data.aiGenerationsUsed ?? 0);
             const balance = typeof data.creditsBalance === 'number' && data.creditsBalance > 0
               ? data.creditsBalance
-              : Math.max(0, monthly - usedCredits) + topup;
+              : Math.max(0, monthly - usedCredits);
 
             setUsageData({
               userId: effectiveUserId,
@@ -121,6 +128,7 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
         },
         (error) => {
           handleFirestoreError(error, OperationType.GET, docPath);
+          setUsageData((prev) => prev || getDefaultUsageForUser(effectiveUserId, effectivePlan));
           setIsLoading(false);
         }
       );
@@ -128,10 +136,11 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
       return () => unsubscribe();
     } catch (err) {
       handleFirestoreError(err, OperationType.GET, docPath);
+      setUsageData((prev) => prev || getDefaultUsageForUser(effectiveUserId, effectivePlan));
       setIsLoading(false);
       return () => {};
     }
-  }, [effectiveUserId, effectivePlan]);
+  }, [effectiveUserId, effectivePlan, user, contextUsage]);
 
   const isAdmin = profile?.email?.trim().toLowerCase() === 'starcybercafe097@gmail.com';
   if (UNLIMITED_USAGE && !isAdmin) return null;
@@ -140,9 +149,9 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
   const currentUsage = usageData || contextUsage || getDefaultUsageForUser(effectiveUserId, effectivePlan);
   const used = currentUsage.creditsUsed ?? currentUsage.aiGenerationsUsed ?? 0;
   const monthly = currentUsage.monthlyCredits ?? 500;
-  const topup = currentUsage.topupCredits ?? 100;
-  const balance = currentUsage.creditsBalance ?? (monthly + topup - used);
-  const totalCapacity = Math.max(1, monthly + (topup > 0 ? topup : 0));
+  const topup = 0;
+  const balance = currentUsage.creditsBalance ?? (monthly - used);
+  const totalCapacity = Math.max(1, monthly);
   const percentage = Math.min(100, Math.max(0, Math.round((balance / totalCapacity) * 100)));
   const isZeroCredits = balance <= 0;
 
@@ -290,7 +299,7 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
                   <span>{percentage}% capacity available</span>
                   <div className="flex items-center gap-1.5">
                     <span>Used: {used}</span>
-                    {topup > 0 && <span className="text-indigo-600 font-bold">(+{topup} top-up)</span>}
+
                   </div>
                 </div>
               </div>
@@ -317,28 +326,7 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2">
-                <button
-                  id="usage-meter-topup-btn"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowPopover(false);
-                    setIsCreditTopUpOpen(true);
-                  }}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
-                >
-                  <Zap className="w-3.5 h-3.5 fill-white text-white" />
-                  <span>Top Up</span>
-                </button>
-                <button
-                  id="usage-meter-settings-btn"
-                  onClick={handleSettingsClick}
-                  className="py-2 px-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-medium transition-colors cursor-pointer"
-                >
-                  Settings
-                </button>
-              </div>
+
             </div>
           </>
         )}

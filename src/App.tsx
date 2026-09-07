@@ -20,8 +20,6 @@ import { AIGeneratorModal } from './components/modals/AIGeneratorModal';
 import { MultimodalModal } from './components/modals/MultimodalModal';
 import { AIAssistantDrawer } from './components/modals/AIAssistantDrawer';
 import { ExportShareModal } from './components/modals/ExportShareModal';
-import { PricingModal } from './components/modals/PricingModal';
-import { CreditTopUpModal } from './components/modals/CreditTopUpModal';
 import { VersionHistoryModal } from './components/modals/VersionHistoryModal';
 import { SettingsModal } from './components/modals/SettingsModal';
 import { QuickNotesModal } from './components/modals/QuickNotesModal';
@@ -152,8 +150,6 @@ const MainLayout: React.FC = () => {
       <MultimodalModal />
       <AIAssistantDrawer />
       <ExportShareModal />
-      <PricingModal />
-      <CreditTopUpModal />
       <VersionHistoryModal />
       <SettingsModal />
       <QuickNotesModal />

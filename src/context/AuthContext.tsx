@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import {
   auth,
   db,
@@ -53,6 +53,7 @@ interface AuthContextType {
   loginAsEmailUser: (email: string, name?: string) => void;
   signOut: () => Promise<void>;
   updatePlan: (plan: PlanType) => void;
+  updateProfile: (data: Partial<UserProfile>) => Promise<void>;
   completeOnboarding: (useCase?: string, role?: string) => void;
   reloadUser: (forceRefreshClaims?: boolean) => Promise<{
     user: FirebaseUser | null;
@@ -69,6 +70,11 @@ const AUTHORIZED_ADMIN_EMAIL = 'starcybercafe097@gmail.com';
 
 // Helper to sync user record with Firestore
 async function syncUserProfileToFirestore(userProfile: UserProfile) {
+  // Only sync to Firestore if authenticated with a real Firebase User matching UID
+  if (!auth.currentUser || !userProfile.id || userProfile.id !== auth.currentUser.uid) {
+    return;
+  }
+
   try {
     const userDocRef = doc(db, 'users', userProfile.id);
     await setDoc(
@@ -112,11 +118,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [isGuest, setIsGuest] = useState(false);
 
+  const reloadUserRef = useRef<(forceRefreshClaims?: boolean) => Promise<any>>(() => Promise.resolve({}));
+
   useEffect(() => {
-    if (profile && profile.id) {
+    if (auth.currentUser && user && profile && profile.id === auth.currentUser.uid) {
       syncUserProfileToFirestore(profile);
     }
-  }, [profile]);
+  }, [profile, user]);
+
+  useEffect(() => {
+    const handleAdminUpdate = async (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const updatedUserId = customEvent.detail?.userId;
+      if (auth.currentUser && (!updatedUserId || updatedUserId === auth.currentUser.uid)) {
+        console.log('[AuthContext] Admin update event received. Reloading user profile & quota...');
+        await reloadUserRef.current(true);
+      }
+    };
+
+    const handleWindowFocus = () => {
+      if (auth.currentUser && (typeof navigator === 'undefined' || navigator.onLine)) {
+        reloadUserRef.current(false).catch(() => {});
+      }
+    };
+
+    window.addEventListener('mindflow_admin_update', handleAdminUpdate);
+    window.addEventListener('focus', handleWindowFocus);
+    return () => {
+      window.removeEventListener('mindflow_admin_update', handleAdminUpdate);
+      window.removeEventListener('focus', handleWindowFocus);
+    };
+  }, []);
 
   useEffect(() => {
     // Check saved local profile
@@ -340,6 +372,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const updateProfile = async (data: Partial<UserProfile>) => {
+    if (profile) {
+      const updated = { ...profile, ...data, updatedAt: Date.now() };
+      setProfile(updated);
+      localStorage.setItem(LOCAL_PROFILE_KEY, JSON.stringify(updated));
+      await syncUserProfileToFirestore(updated);
+    }
+  };
+
   const completeOnboarding = (useCase?: string, role?: string) => {
     if (profile) {
       const updated = {
@@ -360,13 +401,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (updatedUser) {
         try {
+          if (typeof navigator !== 'undefined' && !navigator.onLine) {
+            return { user: updatedUser, claims: {}, profile };
+          }
           await reload(updatedUser);
           updatedUser = auth.currentUser;
           setUser(updatedUser);
 
           const tokenResult: IdTokenResult = await getIdTokenResult(updatedUser, forceRefreshClaims);
           claims = tokenResult.claims || {};
+        } catch (authErr: any) {
+          console.warn('[AuthContext] Auth token refresh notice (operating in offline/cached session):', authErr?.message || authErr);
+        }
 
+        try {
           // Fetch latest user document from Firestore to synchronize plan & roles
           let cloudProfileData: any = null;
           if (db) {
@@ -427,6 +475,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     },
     [profile]
   );
+
+  useEffect(() => {
+    reloadUserRef.current = reloadUser;
+  }, [reloadUser]);
 
   const logAuthDiagnostics = useCallback(async (): Promise<AuthDiagnosticsResult> => {
     const currentFbUser = auth.currentUser;
@@ -525,6 +577,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loginAsEmailUser,
         signOut,
         updatePlan,
+        updateProfile,
         completeOnboarding,
         reloadUser,
         logAuthDiagnostics,

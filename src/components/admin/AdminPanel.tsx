@@ -18,6 +18,7 @@ import { AdminSettingsView } from './AdminSettingsView';
 import { AdminUserDetailsModal } from './AdminUserDetailsModal';
 import { useAuth } from '../../context/AuthContext';
 import { AdminLoginGate } from './AdminLoginGate';
+import { AdminAccessDeniedView } from './AdminAccessDeniedView';
 
 const AdminContent: React.FC = () => {
   const { currentTab, selectedUserId, setSelectedUserId, refreshData } = useAdmin();
@@ -92,6 +93,9 @@ export const AdminPanel: React.FC = () => {
   }
 
   if (!isSuperAdmin) {
+    if (user) {
+      return <AdminAccessDeniedView />;
+    }
     return <AdminLoginGate />;
   }
 

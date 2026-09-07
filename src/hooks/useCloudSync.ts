@@ -57,8 +57,11 @@ export interface UseCloudSyncReturn {
  */
 function resolveUserId(providedUserId?: string | null): string | null {
   const currentUid = auth.currentUser?.uid || null;
-  if (providedUserId && providedUserId !== 'demo-user' && providedUserId !== 'current-user') {
-    return currentUid || providedUserId;
+  if (!currentUid) {
+    return null;
+  }
+  if (providedUserId && providedUserId !== 'demo-user' && providedUserId !== 'current-user' && providedUserId !== 'creator-guest') {
+    return currentUid;
   }
   return currentUid;
 }

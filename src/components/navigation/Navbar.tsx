@@ -191,11 +191,12 @@ export const Navbar: React.FC = () => {
         </button>
 
         {/* Reusable Visual AI Limit Usage Progress Meter in Navbar */}
-        <UsageMeter
-          variant="navbar"
-          onUpgrade={() => setIsPricingOpen(true)}
-          onOpenSettings={() => setIsSettingsOpen(true)}
-        />
+        {(SHOW_PLAN_UI || isAdmin) && (
+          <UsageMeter
+            variant="navbar"
+            onUpgrade={() => setIsPricingOpen(true)}
+          />
+        )}
 
         {/* Real Cloud Sync Status & Sync Now Trigger */}
         <button
@@ -437,28 +438,20 @@ export const Navbar: React.FC = () => {
                   <LayoutDashboard className="w-3.5 h-3.5 text-slate-400" />
                   Dashboard
                 </button>
-                <button
-                  id="user-menu-settings-btn"
-                  onClick={() => {
-                    setShowUserMenu(false);
-                    setIsSettingsOpen(true);
-                  }}
-                  className="w-full text-left px-4 py-1.5 text-xs hover:bg-slate-50 flex items-center gap-2 cursor-pointer text-slate-800"
-                >
-                  <Settings className="w-3.5 h-3.5 text-slate-500" />
-                  Settings & AI Limits
-                </button>
-                <button
-                  id="user-menu-pricing-btn"
-                  onClick={() => {
-                    setShowUserMenu(false);
-                    setIsPricingOpen(true);
-                  }}
-                  className="w-full text-left px-4 py-1.5 text-xs hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
-                >
-                  <Crown className="w-3.5 h-3.5 text-amber-500" />
-                  Subscription Plans
-                </button>
+
+                {(SHOW_PLAN_UI || isAdmin) && (
+                  <button
+                    id="user-menu-pricing-btn"
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      setIsPricingOpen(true);
+                    }}
+                    className="w-full text-left px-4 py-1.5 text-xs hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                  >
+                    <Crown className="w-3.5 h-3.5 text-amber-500" />
+                    Subscription Plans
+                  </button>
+                )}
                 <button
                   id="user-menu-user-manual-btn"
                   onClick={() => {
@@ -509,7 +502,7 @@ export const Navbar: React.FC = () => {
                   className="w-full text-left px-4 py-1.5 text-xs hover:bg-slate-50 text-slate-700 flex items-center gap-2 cursor-pointer font-medium"
                 >
                   <User className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Account & Admin Login</span>
+                  <span>Account</span>
                 </button>
                 <button
                   id="user-menu-legal-btn"

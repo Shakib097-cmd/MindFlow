@@ -111,8 +111,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-base leading-tight">Account & Admin Sign In</h3>
-              <p className="text-xs text-indigo-200/80">Manage authentication & admin access</p>
+              <h3 className="font-bold text-base leading-tight">Account Sign In</h3>
+              <p className="text-xs text-indigo-200/80">Sign in to your account</p>
             </div>
           </div>
           <button

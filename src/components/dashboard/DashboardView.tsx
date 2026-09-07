@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import { useAuth } from '../../context/AuthContext';
-import { UNLIMITED_USAGE } from '../../lib/config';
+import { UNLIMITED_USAGE, SHOW_PLAN_UI } from '../../lib/config';
 import { TEMPLATES } from '../../data/templates';
 import {
   Sparkles,
@@ -69,6 +69,7 @@ export const DashboardView: React.FC = () => {
   } = useWorkspace();
 
   const { profile } = useAuth();
+  const isAdmin = profile?.role === 'admin' || profile?.email?.includes('starcybercafe097');
   const [activeCategorySection, setActiveCategorySection] = useState<DashboardCategoryFilter>('all');
   const [selectedMapCategory, setSelectedMapCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -289,18 +290,10 @@ export const DashboardView: React.FC = () => {
                 </span>
               </div>
               <p className="text-xs text-slate-600 mt-0.5">
-                Top up credits now to prevent generation interruptions.
+                Manage your plan entitlements in Subscription Plans.
               </p>
             </div>
           </div>
-          <button
-            id="dash-low-credits-topup-btn"
-            onClick={() => setIsCreditTopUpOpen(true)}
-            className="self-start sm:self-auto px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
-          >
-            <Zap className="w-3.5 h-3.5 fill-white" />
-            <span>Top Up</span>
-          </button>
         </div>
       )}
 
@@ -314,10 +307,12 @@ export const DashboardView: React.FC = () => {
                 <h1 className="text-xl sm:text-2xl font-bold font-display text-slate-900 tracking-tight">
                   Welcome back, {profile?.name || 'Creator'}
                 </h1>
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
-                  <Zap className="w-3 h-3 text-indigo-600 fill-indigo-600" />
-                  {effectivePlan.toUpperCase()}
-                </span>
+                {(SHOW_PLAN_UI || isAdmin) && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                    <Zap className="w-3 h-3 text-indigo-600 fill-indigo-600" />
+                    {effectivePlan.toUpperCase()}
+                  </span>
+                )}
               </div>
               <p className="text-xs sm:text-sm text-slate-500">
                 Visual intelligence workspace organized into Core Tools, AI Assistants, and Projects.

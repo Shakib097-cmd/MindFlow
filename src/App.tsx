@@ -28,6 +28,7 @@ import { CookieConsentBanner } from './components/legal/CookieConsentBanner';
 import { FeatureAccessDeniedView } from './components/views/FeatureAccessDeniedView';
 import { hasFeature } from './services/entitlementsService';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { SEOHead } from './components/seo/SEOHead';
 import confetti from 'canvas-confetti';
 
 const MainLayout: React.FC = () => {
@@ -44,49 +45,65 @@ const MainLayout: React.FC = () => {
   // If on user manual view, render UserManualView
   if (currentView === 'user_manual') {
     return (
-      <UserManualView
-        initialCategory={userManualCategory || 'getting-started'}
-        onBackToApp={() => {
-          if (user) {
-            setCurrentView('dashboard');
-          } else {
-            setCurrentView('landing');
-          }
-          if (typeof window !== 'undefined') {
-            window.history.pushState({}, '', '/');
-          }
-        }}
-      />
+      <>
+        <SEOHead />
+        <UserManualView
+          initialCategory={userManualCategory || 'getting-started'}
+          onBackToApp={() => {
+            if (user) {
+              setCurrentView('dashboard');
+            } else {
+              setCurrentView('landing');
+            }
+            if (typeof window !== 'undefined') {
+              window.history.pushState({}, '', '/');
+            }
+          }}
+        />
+      </>
     );
   }
 
   // If on legal view, render LegalLayout
   if (currentView === 'legal') {
     return (
-      <LegalLayout
-        initialDocId={legalDocId}
-        onBackToApp={() => {
-          if (user) {
-            setCurrentView('dashboard');
-          } else {
-            setCurrentView('landing');
-          }
-          if (typeof window !== 'undefined') {
-            window.history.pushState({}, '', '/');
-          }
-        }}
-      />
+      <>
+        <SEOHead />
+        <LegalLayout
+          initialDocId={legalDocId}
+          onBackToApp={() => {
+            if (user) {
+              setCurrentView('dashboard');
+            } else {
+              setCurrentView('landing');
+            }
+            if (typeof window !== 'undefined') {
+              window.history.pushState({}, '', '/');
+            }
+          }}
+        />
+      </>
     );
   }
 
   // If on admin view, render AdminPanel
   if (currentView === 'admin') {
-    return <AdminPanel />;
+    return (
+      <>
+        <SEOHead />
+        <AdminPanel />
+      </>
+    );
   }
 
   // If on landing view and user isn't logged in, show landing
   if (currentView === 'landing') {
-    return <LandingView />;
+    return (
+      <>
+        <SEOHead />
+        <LandingView />
+      </>
+    );
   }
 
   // Render view
@@ -118,6 +135,7 @@ const MainLayout: React.FC = () => {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-slate-100 font-sans text-slate-900 selection:bg-indigo-100 selection:text-indigo-900">
+      <SEOHead />
       {/* Global Sidebar */}
       <Sidebar />
 

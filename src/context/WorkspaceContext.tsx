@@ -226,7 +226,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const getInitialRouteMatch = (): { view: WorkspaceView; legalDocId: LegalDocId; manualCategory: string } => {
     if (typeof window === 'undefined') return { view: 'dashboard', legalDocId: 'privacy', manualCategory: 'getting-started' };
     const path = window.location.pathname;
-    if (path.startsWith('/help/user-manual') || path.startsWith('/user-manual')) {
+    if (path.startsWith('/help/user-manual') || path.startsWith('/user-manual') || path.startsWith('/manual')) {
       const hash = window.location.hash.replace('#', '');
       return { view: 'user_manual', legalDocId: 'privacy', manualCategory: hash || 'getting-started' };
     }
@@ -237,7 +237,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (path.startsWith('/admin')) {
       return { view: 'admin', legalDocId: 'privacy', manualCategory: 'getting-started' };
     }
-    if (path === '/login' || path === '/signup' || path === '/landing') {
+    if (path === '/login' || path === '/signup' || path === '/landing' || path === '/features' || path === '/pricing') {
       return { view: 'landing', legalDocId: 'privacy', manualCategory: 'getting-started' };
     }
     if (path === '/' || path === '' || path === '/dashboard' || path === '/app' || path === '/profile' || path === '/settings') {
@@ -309,7 +309,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     const handlePop = () => {
       const path = window.location.pathname;
-      if (path.startsWith('/help/user-manual') || path.startsWith('/user-manual')) {
+      if (path.startsWith('/help/user-manual') || path.startsWith('/user-manual') || path.startsWith('/manual')) {
         const hash = window.location.hash.replace('#', '');
         setUserManualCategory(hash || 'getting-started');
         setCurrentViewInternal('user_manual');
@@ -321,7 +321,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setCurrentViewInternal('legal');
         return;
       }
-      if (path === '/' || path === '/landing' || path === '') {
+      if (path === '/' || path === '/landing' || path === '' || path === '/features' || path === '/pricing') {
         setCurrentViewInternal('landing');
         return;
       }

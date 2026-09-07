@@ -422,10 +422,6 @@ export const LegalLayout: React.FC<LegalLayoutProps> = ({
         currentDocId={activeDocId}
         onNavigateLegal={navigateToDoc}
         onOpenCookiePreferences={() => setShowCookieModal(true)}
-        onAdminLogin={() => {
-          window.history.pushState({}, '', '/admin');
-          window.dispatchEvent(new PopStateEvent('popstate'));
-        }}
       />
 
       {/* Interactive Cookie Consent Banner & Preferences Modal */}

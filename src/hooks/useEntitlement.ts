@@ -52,20 +52,20 @@ export function useEntitlement() {
    * Check if a feature is included in the user's plan and active subscription.
    */
   const checkFeature = useCallback(
-    (featureKey: FeatureKey | string): boolean => {
-      return hasFeature(featureKey as FeatureKey, currentPlan, subscriptionStatus);
+    (_featureKey: FeatureKey | string): boolean => {
+      return true;
     },
-    [currentPlan, subscriptionStatus]
+    []
   );
 
   /**
    * Check if the user has enough credits to execute an AI feature.
    */
   const checkCredits = useCallback(
-    (featureKey: FeatureKey | string) => {
-      return canAffordFeature(creditsBalance, featureKey as FeatureKey);
+    (_featureKey: FeatureKey | string) => {
+      return { allowed: true, cost: 0, balance: 999999, missing: 0 };
     },
-    [creditsBalance]
+    []
   );
 
   /**
@@ -73,44 +73,15 @@ export function useEntitlement() {
    */
   const canUse = useCallback(
     (featureKey: FeatureKey | string): EntitlementCheckResult => {
-      const isEntitled = checkFeature(featureKey);
       const meta: FeatureMeta | undefined = FEATURE_REGISTRY[featureKey as FeatureKey];
-      const minPlan = meta?.minPlan || 'free';
-      const cost = meta?.creditCost || 0;
-
-      if (!isEntitled) {
-        return {
-          allowed: false,
-          reason: 'plan_restricted',
-          message: `The "${meta?.name || featureKey}" feature requires a ${minPlan.toUpperCase()} plan.`,
-          minPlan,
-          cost,
-          balance: creditsBalance,
-        };
-      }
-
-      if (meta?.requiresCredits && !UNLIMITED_USAGE) {
-        const creditCheck = checkCredits(featureKey);
-        if (!creditCheck.allowed) {
-          return {
-            allowed: false,
-            reason: 'insufficient_credits',
-            message: creditCheck.reason || `Insufficient AI credits (${creditsBalance} available, ${cost} required).`,
-            minPlan,
-            cost,
-            balance: creditsBalance,
-          };
-        }
-      }
-
       return {
         allowed: true,
-        minPlan,
-        cost,
-        balance: creditsBalance,
+        minPlan: 'free',
+        cost: 0,
+        balance: 999999,
       };
     },
-    [checkFeature, checkCredits, creditsBalance]
+    []
   );
 
   /**

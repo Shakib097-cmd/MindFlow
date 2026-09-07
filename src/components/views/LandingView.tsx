@@ -57,10 +57,8 @@ export const LandingView: React.FC = () => {
 
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showCookieModal, setShowCookieModal] = useState(false);
-  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signup');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -87,16 +85,12 @@ export const LandingView: React.FC = () => {
     setAuthLoading(true);
     setAuthError('');
     try {
-      if (authMode === 'signup') {
-        await signUpWithEmail(email, password, name || 'MindFlow Creator');
-      } else {
-        await signInWithEmail(email, password);
-      }
+      await signInWithEmail(email, password);
       setShowAuthModal(false);
       setCurrentView('dashboard');
     } catch (err: any) {
       console.warn('Auth notice, fallback to email user session:', err);
-      loginAsEmailUser(email, name);
+      loginAsEmailUser(email, email.split('@')[0] || 'User');
       setShowAuthModal(false);
       setCurrentView('dashboard');
     } finally {
@@ -106,15 +100,14 @@ export const LandingView: React.FC = () => {
 
   const handleGoogleSignIn = async () => {
     setAuthLoading(true);
+    setAuthError('');
     try {
       await signInWithGoogle();
       setShowAuthModal(false);
       setCurrentView('dashboard');
     } catch (err: any) {
-      console.warn('Google sign in notice, fallback:', err);
-      loginAsEmailUser('creator@mindflow.ai', 'MindFlow Creator');
-      setShowAuthModal(false);
-      setCurrentView('dashboard');
+      console.warn('Google sign in error:', err);
+      setAuthError(err?.message || 'Google sign in failed. Please try again.');
     } finally {
       setAuthLoading(false);
     }
@@ -130,20 +123,36 @@ export const LandingView: React.FC = () => {
 
   const faqs = [
     {
-      q: 'How does MindFlow turn mind map ideas into actionable Kanban workflows?',
-      a: 'MindFlow features a dedicated Action Tasks Kanban engine. You can select any mind map or branch, and with one click, convert ideas into prioritized Kanban tasks with subtasks, due dates, and sprint milestones.',
+      q: 'What is MindWorkflow?',
+      a: 'MindWorkflow is an AI-powered workspace and workflow automation platform designed to turn visual ideas and brainstorms into structured mind maps, prioritized Kanban workflows, task schedules, and actionable execution plans.',
     },
     {
-      q: 'Which AI models power the intelligent node generation and action planning?',
-      a: 'MindFlow uses Gemini 3.7 Flash and Gemini 3.1 Pro for deep multi-step reasoning, real-time structured tree generation, automatic task categorization, and study flashcards.',
+      q: 'What is AI workflow automation?',
+      a: 'AI workflow automation is the use of artificial intelligence and machine reasoning to design, streamline, and execute multi-step workflows, synthesize information, eliminate repetitive cognitive tasks, and connect ideation directly to project delivery.',
     },
     {
-      q: 'Can I import documents, PDFs, or use voice dictation?',
-      a: 'Yes! MindFlow supports multimodal ingestion. You can record live voice notes or upload text and PDFs to instantly synthesize comprehensive visual mind maps.',
+      q: 'How does MindWorkflow work?',
+      a: 'You can start by typing a prompt, dictating voice notes, uploading documents/PDFs, or picking a curated blueprint. MindWorkflow\'s AI reasoning engine instantly organizes concepts into a structured visual mind map, which can then be converted with one click into prioritized Kanban task boards, study materials, or presentation decks.',
     },
     {
-      q: 'Is my data synced securely across devices?',
-      a: 'All maps, Kanban tasks, goals, and study materials are saved locally with instant responsiveness and persisted via Cloud Firestore for secure multi-device access.',
+      q: 'Who can use MindWorkflow?',
+      a: 'MindWorkflow is built for entrepreneurs, product managers, software engineers, researchers, students, and agile teams who want clarity, faster decision-making, and rapid execution from initial concept to launch.',
+    },
+    {
+      q: 'Can MindWorkflow automate repetitive tasks?',
+      a: 'Yes. MindWorkflow automates repetitive ideation, breakdown of complex goals into subtasks, sprint backlog generation, documentation synthesis, and spaced repetition flashcard creation.',
+    },
+    {
+      q: 'Can I create AI workflows with MindWorkflow?',
+      a: 'Yes. You can build comprehensive multi-step AI workflows, convert complex branching logic into actionable steps, assign priorities and horizons, and track execution across flexible layout structures.',
+    },
+    {
+      q: 'Does MindWorkflow support AI agents?',
+      a: 'Yes. MindWorkflow includes AI Copilot and reasoning agents that suggest next-step branches, generate tactical subtasks, evaluate dependencies, and answer contextual questions about your workspace graphs.',
+    },
+    {
+      q: 'Is MindWorkflow suitable for businesses?',
+      a: 'Yes. MindWorkflow provides enterprise-grade data encryption, export capabilities to standard business formats (PNG, SVG, PDF, Markdown, JSON), cloud sync, and agile project management tools suitable for startups and growing businesses.',
     },
   ];
 
@@ -179,7 +188,7 @@ export const LandingView: React.FC = () => {
             </div>
             <div className="flex items-center gap-2">
               <span className="font-display font-extrabold text-xl tracking-tight text-slate-900">
-                MindFlow
+                MindWorkflow
               </span>
               <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
                 AI
@@ -232,20 +241,14 @@ export const LandingView: React.FC = () => {
               <>
                 <button
                   id="nav-login-btn"
-                  onClick={() => {
-                    setAuthMode('signin');
-                    setShowAuthModal(true);
-                  }}
+                  onClick={() => setShowAuthModal(true)}
                   className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
                 >
                   Log In
                 </button>
                 <button
                   id="nav-start-for-free-btn"
-                  onClick={() => {
-                    setAuthMode('signup');
-                    setShowAuthModal(true);
-                  }}
+                  onClick={() => setShowAuthModal(true)}
                   className="px-5 py-2.5 rounded-xl text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm hover:shadow-md hover:shadow-indigo-500/20 transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
                 >
                   <span>Start for Free</span>
@@ -308,7 +311,6 @@ export const LandingView: React.FC = () => {
                   <button
                     onClick={() => {
                       setMobileMenuOpen(false);
-                      setAuthMode('signin');
                       setShowAuthModal(true);
                     }}
                     className="w-full py-2.5 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-100 text-center cursor-pointer"
@@ -319,7 +321,6 @@ export const LandingView: React.FC = () => {
                     id="mobile-start-for-free-btn"
                     onClick={() => {
                       setMobileMenuOpen(false);
-                      setAuthMode('signup');
                       setShowAuthModal(true);
                     }}
                     className="w-full py-2.5 rounded-xl text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white text-center shadow-xs cursor-pointer"
@@ -342,22 +343,20 @@ export const LandingView: React.FC = () => {
             {/* Top Eyebrow Badge */}
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold shadow-xs">
               <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-              <span>Next-Gen Visual Ideation & Agile Execution</span>
+              <span>AI Workspace for Turning Ideas Into Action</span>
             </div>
 
             {/* Main Hero Headline */}
             <h1 className="text-4xl sm:text-6xl lg:text-7xl font-display font-extrabold text-slate-900 tracking-tight leading-[1.1]">
-              Think Visually.{' '}
+              Turn Your Ideas Into{' '}
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 via-indigo-700 to-violet-600">
-                Execute Strategically
-              </span>{' '}
-              with AI.
+                Action With AI
+              </span>
             </h1>
 
             {/* Hero Subtitle */}
             <p className="text-base sm:text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed font-normal">
-              Transform brainstormed thoughts into structured mind maps, prioritized Kanban
-              workflows, slide presentations, and interactive study decks with Gemini 3.7 AI.
+              MindWorkflow is an AI-powered workspace for creating workflows, automating tasks, and turning ideas into action. Build smarter workflows with AI.
             </p>
 
             {/* CTA Buttons */}
@@ -376,7 +375,6 @@ export const LandingView: React.FC = () => {
                   <button
                     id="hero-start-btn"
                     onClick={() => {
-                      setAuthMode('signup');
                       setShowAuthModal(true);
                     }}
                     className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-base shadow-lg shadow-indigo-600/25 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2.5 cursor-pointer"
@@ -425,7 +423,7 @@ export const LandingView: React.FC = () => {
                   <div className="w-3 h-3 rounded-full bg-amber-400" />
                   <div className="w-3 h-3 rounded-full bg-emerald-400" />
                   <span className="ml-2 text-xs font-bold text-slate-500 font-mono">
-                    MindFlow Interactive Canvas
+                    MindWorkflow Interactive Canvas
                   </span>
                 </div>
 
@@ -674,17 +672,15 @@ export const LandingView: React.FC = () => {
               <div className="space-y-6">
                 <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 text-xs font-bold">
                   <FolderKanban className="w-4 h-4 text-indigo-400" />
-                  <span>NEW CAPABILITY</span>
+                  <span>AI WORKFLOW AUTOMATION</span>
                 </div>
 
                 <h2 className="text-3xl sm:text-5xl font-display font-extrabold tracking-tight leading-[1.15]">
-                  Action Tasks Kanban:{' '}
-                  <span className="text-indigo-300">Turn Mind Map Ideas</span> into Prioritized
-                  Workflows.
+                  Build Powerful AI Workflows
                 </h2>
 
                 <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
-                  Mind maps shouldn’t stop at brainstorming. With MindFlow Action Kanban, convert
+                  Mind maps shouldn’t stop at brainstorming. With MindWorkflow AI automation platform, convert
                   any branch, concept, or strategy into agile execution workflows with drag-and-drop
                   milestones, AI action plans, subtask checklists, and deep links back to your visual
                   nodes.
@@ -692,24 +688,24 @@ export const LandingView: React.FC = () => {
 
                 <div className="space-y-3 text-sm text-slate-200">
                   <div className="flex items-center gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                     <span>
                       <strong>1-Click Node Import:</strong> Convert branches into actionable cards
-                      with pre-set priorities.
+                      with pre-set priorities and agile statuses.
                     </span>
                   </div>
                   <div className="flex items-center gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                     <span>
                       <strong>AI Sprint Horizon (7/14/30 Days):</strong> Gemini drafts tactical
-                      milestones and subtasks automatically.
+                      milestones, dependency paths, and subtasks automatically.
                     </span>
                   </div>
                   <div className="flex items-center gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                     <span>
                       <strong>Bi-Directional Deep Linking:</strong> Jump straight from Kanban cards
-                      into the Canvas editor.
+                      into the visual mind map canvas editor.
                     </span>
                   </div>
                 </div>
@@ -753,18 +749,18 @@ export const LandingView: React.FC = () => {
         </section>
 
         {/* =========================================================================
-            5. CORE FEATURES (LIGHT MODE CARDS)
+            5. CORE FEATURES & AUTOMATION (LIGHT MODE CARDS)
         ========================================================================= */}
         <section id="features" className="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
           <div className="text-center max-w-3xl mx-auto space-y-4">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-bold">
-              EVERYTHING YOU NEED
+              PRODUCTIVITY AUTOMATION
             </div>
             <h2 className="text-3xl sm:text-5xl font-display font-extrabold text-slate-900 tracking-tight">
-              Powerful Tools to Structure Complex Thought
+              Automate Repetitive Tasks
             </h2>
             <p className="text-base sm:text-lg text-slate-600 leading-relaxed font-normal">
-              Designed for entrepreneurs, engineers, researchers, and students who want clarity.
+              Designed for entrepreneurs, engineers, researchers, and students who want no-code AI workflows and clarity.
             </p>
           </div>
 
@@ -868,9 +864,98 @@ export const LandingView: React.FC = () => {
         </section>
 
         {/* =========================================================================
+            5b. AI AGENTS & ASSISTANTS SECTION
+        ========================================================================= */}
+        <section className="py-16 bg-slate-50 border-t border-slate-200/80 px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center max-w-3xl mx-auto space-y-3 mb-12">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-50 text-violet-700 border border-violet-200 text-xs font-bold">
+                INTELLIGENT REASONING
+              </div>
+              <h2 className="text-3xl sm:text-4xl font-display font-extrabold text-slate-900 tracking-tight">
+                Create and Manage AI Agents
+              </h2>
+              <p className="text-sm sm:text-base text-slate-600">
+                Deploy specialized AI copilot agents to brainstorm, expand node branches, summarize dense texts, and manage multi-step task dependencies.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <h3 className="text-base font-bold text-slate-900">Branching Expansion Agent</h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Automatically suggests 5 to 10 logical sub-branches, strategic considerations, or counterarguments for any selected node.
+                </p>
+              </div>
+
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                <div className="w-10 h-10 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center font-bold">
+                  <Cpu className="w-5 h-5" />
+                </div>
+                <h3 className="text-base font-bold text-slate-900">Task Decomposition Agent</h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Breaks high-level business goals into sequential micro-tasks, estimating horizons (7, 14, or 30 days) and sprint milestones.
+                </p>
+              </div>
+
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                  <CheckSquare className="w-5 h-5" />
+                </div>
+                <h3 className="text-base font-bold text-slate-900">Synthesis & Quiz Agent</h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Generates interactive multiple-choice quizzes, flashcards, and summary study sheets from visual node hierarchies.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* =========================================================================
+            5c. TOOLS & EXPORTS INTEGRATION
+        ========================================================================= */}
+        <section className="py-16 bg-white border-t border-slate-200 px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center max-w-3xl mx-auto space-y-3 mb-12">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200 text-xs font-bold">
+                SEAMLESS INTEROPERABILITY
+              </div>
+              <h2 className="text-3xl sm:text-4xl font-display font-extrabold text-slate-900 tracking-tight">
+                Connect Your Favorite Tools
+              </h2>
+              <p className="text-sm sm:text-base text-slate-600">
+                Export and share your workflows, graphs, and task boards across all industry standard formats.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/80">
+                <div className="font-bold text-sm text-slate-900">Vector & Images</div>
+                <div className="text-xs text-slate-500 mt-1">High-res PNG & SVG</div>
+              </div>
+              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/80">
+                <div className="font-bold text-sm text-slate-900">Documents</div>
+                <div className="text-xs text-slate-500 mt-1">Print-ready PDF & Markdown</div>
+              </div>
+              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/80">
+                <div className="font-bold text-sm text-slate-900">Structured Data</div>
+                <div className="text-xs text-slate-500 mt-1">JSON & OPML Import/Export</div>
+              </div>
+              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/80">
+                <div className="font-bold text-sm text-slate-900">Cloud Sync</div>
+                <div className="text-xs text-slate-500 mt-1">Real-time Firestore Database</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* =========================================================================
             6. TEMPLATES SHOWCASE (LIGHT MODE)
         ========================================================================= */}
-        <section id="templates" className="py-20 bg-white border-y border-slate-200 px-4 sm:px-6 lg:px-8">
+        <section id="templates" className="py-20 bg-slate-50 border-y border-slate-200 px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
               <div>
@@ -878,16 +963,15 @@ export const LandingView: React.FC = () => {
                   READY-TO-USE BLUEPRINTS
                 </div>
                 <h2 className="text-3xl sm:text-4xl font-display font-extrabold text-slate-900 tracking-tight">
-                  Launch Instantly with Curated Templates
+                  Work Smarter With MindWorkflow
                 </h2>
                 <p className="text-sm sm:text-base text-slate-600 mt-1">
-                  Start with structured blueprints created for fast execution.
+                  Start with structured blueprints created for fast execution and business automation.
                 </p>
               </div>
 
               <button
                 onClick={() => {
-                  setAuthMode('signup');
                   setShowAuthModal(true);
                 }}
                 className="self-start md:self-auto px-5 py-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
@@ -931,11 +1015,11 @@ export const LandingView: React.FC = () => {
                 <div
                   key={idx}
                   onClick={() => handleStartTemplate(tmpl.title)}
-                  className={`bg-slate-50 hover:bg-white p-6 rounded-2xl border ${tmpl.color} shadow-xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group`}
+                  className={`bg-white hover:bg-slate-50 p-6 rounded-2xl border ${tmpl.color} shadow-xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group`}
                 >
                   <div>
                     <div className="flex items-center justify-between mb-3">
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white text-slate-700 border border-slate-200">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
                         {tmpl.tag}
                       </span>
                       <span className="text-[11px] font-mono text-slate-400">{tmpl.nodes} nodes</span>
@@ -952,6 +1036,57 @@ export const LandingView: React.FC = () => {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        </section>
+
+        {/* =========================================================================
+            6b. WHY CHOOSE MINDWORKFLOW?
+        ========================================================================= */}
+        <section className="py-20 bg-white border-b border-slate-200 px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center max-w-3xl mx-auto space-y-3 mb-14">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold">
+                THE ADVANTAGE
+              </div>
+              <h2 className="text-3xl sm:text-5xl font-display font-extrabold text-slate-900 tracking-tight">
+                Why Choose MindWorkflow?
+              </h2>
+              <p className="text-base text-slate-600">
+                Built from the ground up for speed, visual clarity, and seamless transition from thought to execution.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
+                <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold">
+                  01
+                </div>
+                <h3 className="text-lg font-bold text-slate-900">All-in-One AI Workspace</h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Eliminate app switching. Go from mind map ideation, task management, document parsing, to study deck creation inside a single unified canvas.
+                </p>
+              </div>
+
+              <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
+                <div className="w-10 h-10 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center font-bold">
+                  02
+                </div>
+                <h3 className="text-lg font-bold text-slate-900">Zero Configuration Setup</h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Start instantly with 100% free access. No complex setup or mandatory subscriptions required to brainstorm and organize.
+                </p>
+              </div>
+
+              <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
+                <div className="w-10 h-10 rounded-xl bg-cyan-100 text-cyan-700 flex items-center justify-center font-bold">
+                  03
+                </div>
+                <h3 className="text-lg font-bold text-slate-900">Enterprise Privacy & Security</h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Your ideas belong to you. Built with strict client-side encryption standards and private zero-retention AI inference pipelines.
+                </p>
+              </div>
             </div>
           </div>
         </section>
@@ -1034,7 +1169,6 @@ export const LandingView: React.FC = () => {
               <button
                 id="pricing-starter-free-btn"
                 onClick={() => {
-                  setAuthMode('signup');
                   setShowAuthModal(true);
                 }}
                 className="mt-8 w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-colors cursor-pointer shadow-xs"
@@ -1074,7 +1208,6 @@ export const LandingView: React.FC = () => {
               </div>
               <button
                 onClick={() => {
-                  setAuthMode('signup');
                   setShowAuthModal(true);
                 }}
                 className="mt-8 w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md transition-all cursor-pointer"
@@ -1096,7 +1229,7 @@ export const LandingView: React.FC = () => {
                 Frequently Asked Questions
               </h2>
               <p className="text-sm text-slate-500">
-                Everything you need to know about MindFlow and Action Tasks Kanban.
+                Everything you need to know about MindWorkflow, AI workflow automation, and our AI workspace.
               </p>
             </div>
 
@@ -1142,14 +1275,13 @@ export const LandingView: React.FC = () => {
               </h2>
               <p className="text-base text-slate-600 leading-relaxed">
                 Experience clarity, generate structured mind maps, and turn ideas into actionable
-                workflows with MindFlow AI.
+                workflows with MindWorkflow AI workspace.
               </p>
 
               <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3.5">
                 <button
                   id="bottom-start-creating-free-btn"
                   onClick={() => {
-                    setAuthMode('signup');
                     setShowAuthModal(true);
                   }}
                   className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-base shadow-lg shadow-indigo-600/25 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
@@ -1160,7 +1292,6 @@ export const LandingView: React.FC = () => {
 
                 <button
                   onClick={() => {
-                    setAuthMode('signin');
                     setShowAuthModal(true);
                   }}
                   className="w-full sm:w-auto px-7 py-4 rounded-2xl bg-white hover:bg-slate-50 text-slate-800 font-semibold text-base border border-slate-200 shadow-xs transition-all cursor-pointer"
@@ -1177,7 +1308,6 @@ export const LandingView: React.FC = () => {
       <GlobalLegalFooter
         onNavigateLegal={(docId) => openLegal(docId)}
         onOpenCookiePreferences={() => setShowCookieModal(true)}
-        onAdminLogin={() => setCurrentView('admin')}
       />
 
       {/* Cookie Consent Banner & Modal */}
@@ -1195,12 +1325,10 @@ export const LandingView: React.FC = () => {
             <div className="flex justify-between items-center pb-3 border-b border-slate-100 mb-4">
               <div>
                 <h3 className="font-bold text-base text-slate-900">
-                  {authMode === 'signup' ? 'Create MindFlow Account' : 'Welcome Back'}
+                  Account Sign In
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  {authMode === 'signup'
-                    ? 'Start for free with mind mapping, action Kanban & AI'
-                    : 'Sign in to sync your mind maps and action plans'}
+                  Sign in to sync your mind maps and action plans
                 </p>
               </div>
               <button
@@ -1208,38 +1336,6 @@ export const LandingView: React.FC = () => {
                 className="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 text-sm font-bold cursor-pointer"
               >
                 ✕
-              </button>
-            </div>
-
-            {/* Mode Switcher Tabs */}
-            <div className="flex p-1 bg-slate-100 rounded-xl mb-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthMode('signup');
-                  setAuthError('');
-                }}
-                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  authMode === 'signup'
-                    ? 'bg-white text-indigo-600 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Create Account (Free)
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthMode('signin');
-                  setAuthError('');
-                }}
-                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  authMode === 'signin'
-                    ? 'bg-white text-indigo-600 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Sign In
               </button>
             </div>
 
@@ -1287,22 +1383,6 @@ export const LandingView: React.FC = () => {
             </div>
 
             <form onSubmit={handleEmailAuth} className="space-y-3">
-              {authMode === 'signup' && (
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Your Name
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Alex Rivera"
-                    className="w-full text-xs px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-hidden"
-                  />
-                </div>
-              )}
-
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 mb-1">Email</label>
                 <input
@@ -1334,43 +1414,11 @@ export const LandingView: React.FC = () => {
               >
                 {authLoading ? (
                   <span>Processing...</span>
-                ) : authMode === 'signup' ? (
-                  <span>Create Account for Free</span>
                 ) : (
                   <span>Sign In</span>
                 )}
               </button>
             </form>
-
-            <div className="mt-4 text-center text-xs text-slate-500">
-              {authMode === 'signup' ? (
-                <>
-                  Already have an account?{' '}
-                  <button
-                    onClick={() => {
-                      setAuthMode('signin');
-                      setAuthError('');
-                    }}
-                    className="text-indigo-600 font-bold hover:underline cursor-pointer"
-                  >
-                    Sign In
-                  </button>
-                </>
-              ) : (
-                <>
-                  Don't have an account?{' '}
-                  <button
-                    onClick={() => {
-                      setAuthMode('signup');
-                      setAuthError('');
-                    }}
-                    className="text-indigo-600 font-bold hover:underline cursor-pointer"
-                  >
-                    Create Free Account
-                  </button>
-                </>
-              )}
-            </div>
           </div>
         </div>
       )}

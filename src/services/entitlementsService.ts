@@ -316,37 +316,8 @@ export function hasFeature(
   second?: FeatureKey | string | PlanType | UserProfile | { plan?: PlanType; subscriptionStatus?: string } | null,
   third?: string
 ): boolean {
-  let featureKey: FeatureKey;
-  let rawPlan: PlanType = 'free';
-  let status: string = 'active';
-
-  if (typeof first === 'string' && (typeof second === 'string' || (second && typeof second === 'object'))) {
-    // Called as hasFeature(featureKey, userOrPlan, status?)
-    featureKey = normalizeFeatureKey(first);
-    if (typeof second === 'string') {
-      rawPlan = (second as PlanType) || 'free';
-      status = third || 'active';
-    } else if (second) {
-      rawPlan = (second.plan as PlanType) || 'free';
-      status = third || (second as any).subscriptionStatus || 'active';
-    }
-  } else {
-    // Called as hasFeature(userOrProfile, featureKey, status?)
-    const userOrProfile = first as UserProfile | { plan?: PlanType; subscriptionStatus?: string } | null | undefined;
-    featureKey = normalizeFeatureKey((second as string) || 'basic_mindmap');
-    if (!userOrProfile) {
-      return featureKey === 'basic_mindmap';
-    }
-    rawPlan = (userOrProfile.plan as PlanType) || 'free';
-    status = third || (userOrProfile as any)?.subscriptionStatus || 'active';
-  }
-
-  // If subscription is delinquent, cancelled, or expired, drop back to free tier
-  const effectivePlan: PlanType =
-    ['past_due', 'cancelled', 'expired'].includes(status) ? 'free' : rawPlan;
-
-  const allowedFeatures = PLAN_FEATURES[effectivePlan] || PLAN_FEATURES.free;
-  return allowedFeatures.includes(featureKey);
+  // 100% Free Mode: All features are unlocked and available to all users!
+  return true;
 }
 
 /**

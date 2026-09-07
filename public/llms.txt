@@ -1,0 +1,28 @@
+# MindWorkflow — AI Workspace for Turning Ideas Into Action
+
+> MindWorkflow is an AI-powered workspace and workflow automation platform designed to turn brainstormed thoughts, notes, voice dictation, and documents into structured visual mind maps, prioritized Kanban workflows, and actionable execution plans.
+
+## Product Overview
+- **Name**: MindWorkflow
+- **URL**: https://mindworkflow.in/
+- **Category**: BusinessApplication / Workflow Automation / AI Workspace
+- **Positioning**: AI Workspace for Turning Ideas Into Action
+- **Primary AI Models**: Gemini 3.7 Flash and Gemini 3.1 Pro Reasoning
+- **License/Tier**: 100% Free Forever Tier with unlimited node and map creation.
+
+## Core Capabilities
+1. **AI Workflow Automation**: Transform single prompts, voice notes, or PDF documents into multi-level hierarchical mind maps in seconds.
+2. **Action Tasks Kanban**: 1-click conversion from mind map ideas into prioritized sprint backlog tasks, subtask checklists, and AI milestones (7/14/30-day horizons).
+3. **Multi-Algorithm Visual Layouts**: Radial, Tree Vertical, Left-to-Right, Right-to-Left, and Fishbone diagramming with auto-balancing.
+4. **Multimodal Ingestion**: Live voice transcription and OCR text/PDF document ingestion.
+5. **AI Study & Memory Engine**: Generate flashcards, quizzes, and spaced-repetition study decks from any branch.
+6. **Multi-Format Export**: Export to Markdown, PNG, SVG, PDF, and JSON.
+7. **Cloud Persistence & Security**: Encrypted multi-tenant storage with local auto-save resilience.
+
+## Important Links & Documentation
+- Homepage: https://mindworkflow.in/
+- Features: https://mindworkflow.in/features
+- User Manual: https://mindworkflow.in/help/user-manual
+- Privacy Policy: https://mindworkflow.in/privacy
+- Terms of Service: https://mindworkflow.in/terms
+- Contact: https://mindworkflow.in/contact

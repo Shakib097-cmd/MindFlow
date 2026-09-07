@@ -4,18 +4,13 @@ import {
   Mail,
   KeyRound,
   ShieldCheck,
-  Crown,
   AlertCircle,
   CheckCircle2,
   ArrowRight,
-  Sparkles,
   LogOut,
-  UserCheck,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useWorkspace } from '../../context/WorkspaceContext';
-
-const SUPER_ADMIN_EMAIL = 'starcybercafe097@gmail.com';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -26,28 +21,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const {
     user,
     profile,
+    isGuest,
     signInWithGoogle,
     signInWithEmail,
-    signUpWithEmail,
     sendPasswordReset,
-    loginAsAdmin,
     signOut,
   } = useAuth();
   const { setCurrentView } = useWorkspace();
 
-  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
+  const [mode, setMode] = useState<'signin' | 'forgot'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const isCurrentSuperAdmin =
-    (user?.email || '').trim().toLowerCase() === SUPER_ADMIN_EMAIL ||
-    (profile?.email || '').trim().toLowerCase() === SUPER_ADMIN_EMAIL;
+  const hasRealActiveAccount = !!user && !isGuest && !!(user.email || profile?.email);
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,8 +51,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         await sendPasswordReset(email.trim());
         setSuccess('Password reset link sent! Please check your email inbox.');
         return;
-      } else if (mode === 'signup') {
-        await signUpWithEmail(email.trim(), password, name.trim() || 'MindFlow User');
       } else {
         await signInWithEmail(email.trim(), password);
       }
@@ -89,21 +78,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
       }, 700);
     } catch (err: any) {
       console.warn('Google sign-in error:', err);
-      setError('Google Sign-In popup could not complete. You can use Email login or instant Admin access below.');
+      setError('Google Sign-In popup could not complete. You can use Email login.');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleInstantAdminLogin = () => {
-    setLoading(true);
-    setError(null);
-    loginAsAdmin();
-    setSuccess('Authenticated as Master Super Admin (starcybercafe097@gmail.com)!');
-    setTimeout(() => {
-      onClose();
-      setCurrentView('admin');
-    }, 600);
   };
 
   return (
@@ -130,56 +108,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
         {/* Content */}
         <div className="p-6 space-y-4">
-          {/* Current Status Banner */}
-          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-slate-500">Current active account:</span>
-              {isCurrentSuperAdmin ? (
-                <span className="inline-flex items-center gap-1 font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
-                  <Crown className="w-3 h-3 text-indigo-600" />
-                  Super Admin
-                </span>
-              ) : (
-                <span className="font-medium text-slate-700">
-                  {profile?.email || user?.email || 'Guest User'}
-                </span>
-              )}
-            </div>
-            {isCurrentSuperAdmin && (
-              <p className="text-[11px] text-emerald-700 font-semibold mt-1 flex items-center gap-1">
-                <UserCheck className="w-3.5 h-3.5" />
-                Verified: Full Administrative Privileges Active
-              </p>
-            )}
-          </div>
-
-          {/* Master Admin Fast Sign-in Box */}
-          <div className="p-4 rounded-xl bg-indigo-50/80 border border-indigo-200 space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-900">
-                <Crown className="w-4 h-4 text-indigo-600" />
-                <span>Master Administrator</span>
-              </div>
-              <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-indigo-200/70 text-indigo-800 font-bold">
-                Owner
-              </span>
-            </div>
-            <p className="text-[11px] text-indigo-700 leading-relaxed">
-              Sign in with your designated master owner email <strong className="font-mono text-indigo-900">{SUPER_ADMIN_EMAIL}</strong> to unlock the Admin Console.
-            </p>
-            <button
-              id="modal-quick-admin-login-btn"
-              type="button"
-              onClick={handleInstantAdminLogin}
-              disabled={loading}
-              className="w-full py-2.5 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
-            >
-              <ShieldCheck className="w-4 h-4" />
-              <span>Authenticate as {SUPER_ADMIN_EMAIL}</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
           {error && (
             <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
@@ -231,21 +159,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
           {/* Form */}
           <form onSubmit={handleEmailSubmit} className="space-y-3">
-            {mode === 'signup' && (
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Your Name"
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-            )}
-
             <div>
               <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                 Email Address
@@ -270,19 +183,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   <label className="block text-[11px] font-semibold text-slate-700">
                     Password
                   </label>
-                  {mode === 'signin' && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setError(null);
-                        setSuccess(null);
-                        setMode('forgot');
-                      }}
-                      className="text-[11px] text-indigo-600 hover:underline font-medium"
-                    >
-                      Forgot password?
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setError(null);
+                      setSuccess(null);
+                      setMode('forgot');
+                    }}
+                    className="text-[11px] text-indigo-600 hover:underline font-medium"
+                  >
+                    Forgot password?
+                  </button>
                 </div>
                 <div className="relative">
                   <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -309,9 +220,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   ? 'Processing...'
                   : mode === 'forgot'
                   ? 'Send Password Reset Link'
-                  : mode === 'signin'
-                  ? 'Sign In'
-                  : 'Create Account'}
+                  : 'Sign In'}
               </span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
@@ -332,20 +241,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 Back to Sign In
               </button>
             ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  setError(null);
-                  setSuccess(null);
-                  setMode(mode === 'signin' ? 'signup' : 'signin');
-                }}
-                className="text-indigo-600 hover:underline font-semibold"
-              >
-                {mode === 'signin' ? 'Need an account? Sign up' : 'Already have an account? Sign in'}
-              </button>
+              <span className="text-slate-400 text-[11px]">
+                Sign in to your account
+              </span>
             )}
 
-            {profile && (
+            {hasRealActiveAccount && (
               <button
                 type="button"
                 onClick={async () => {

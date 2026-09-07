@@ -2961,6 +2961,50 @@ app.get('/api/admin/legal/inquiries', verifyAdminToken, (req: AuthenticatedAdmin
   res.json({ inquiries: legalInquiriesStore });
 });
 
+// Explicit SEO Endpoints for Search Engine Bots and LLMs
+app.get('/robots.txt', (req: Request, res: Response) => {
+  const possiblePaths = [
+    path.join(process.cwd(), 'public', 'robots.txt'),
+    path.join(process.cwd(), 'dist', 'robots.txt'),
+  ];
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      return res.sendFile(p);
+    }
+  }
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.send(`User-agent: *\nAllow: /\nDisallow: /dashboard\nDisallow: /admin\nDisallow: /api/\n\nSitemap: https://mindworkflow.in/sitemap.xml\n`);
+});
+
+app.get('/sitemap.xml', (req: Request, res: Response) => {
+  const possiblePaths = [
+    path.join(process.cwd(), 'public', 'sitemap.xml'),
+    path.join(process.cwd(), 'dist', 'sitemap.xml'),
+  ];
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+      return res.sendFile(p);
+    }
+  }
+  res.status(404).send('Sitemap not found');
+});
+
+app.get('/llms.txt', (req: Request, res: Response) => {
+  const possiblePaths = [
+    path.join(process.cwd(), 'public', 'llms.txt'),
+    path.join(process.cwd(), 'dist', 'llms.txt'),
+  ];
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      return res.sendFile(p);
+    }
+  }
+  res.status(404).send('LLM manifest not found');
+});
+
 // Centralized Error Handling Middleware
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   console.error('[API Server Error]', err);

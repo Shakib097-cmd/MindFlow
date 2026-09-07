@@ -5,14 +5,12 @@ import { Sparkles, ShieldCheck, Lock, ExternalLink, BookOpen } from 'lucide-reac
 interface GlobalLegalFooterProps {
   onNavigateLegal?: (docId: LegalDocId) => void;
   onOpenCookiePreferences?: () => void;
-  onAdminLogin?: () => void;
   currentDocId?: LegalDocId;
 }
 
 export const GlobalLegalFooter: React.FC<GlobalLegalFooterProps> = ({
   onNavigateLegal,
   onOpenCookiePreferences,
-  onAdminLogin,
   currentDocId,
 }) => {
   const handleLinkClick = (e: React.MouseEvent, docId: LegalDocId, route: string) => {
@@ -35,13 +33,13 @@ export const GlobalLegalFooter: React.FC<GlobalLegalFooterProps> = ({
               <div className="w-6 h-6 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-xs">
                 <Sparkles className="w-3.5 h-3.5" />
               </div>
-              <span>MindFlow AI</span>
+              <span>MindWorkflow</span>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-indigo-400 font-mono border border-slate-700">
-                Legal & Compliance Hub
+                AI Workspace
               </span>
             </div>
             <p className="text-slate-400 text-xs max-w-md">
-              AI-driven visual thought architecture. Built with zero-retention enterprise inference and multi-tenant Firestore security.
+              AI workspace for creating workflows, automating tasks, and turning ideas into action. Built with enterprise privacy, TLS 1.3 encryption, and multi-tenant security.
             </p>
           </div>
 
@@ -115,22 +113,9 @@ export const GlobalLegalFooter: React.FC<GlobalLegalFooterProps> = ({
               </button>
             )}
             <span className="text-slate-700">•</span>
-            <button
-              type="button"
-              onClick={() => {
-                if (onAdminLogin) {
-                  onAdminLogin();
-                } else {
-                  window.history.pushState({}, '', '/admin');
-                  window.dispatchEvent(new PopStateEvent('popstate'));
-                }
-              }}
-              className="text-slate-400 hover:text-indigo-400 transition-colors cursor-pointer flex items-center gap-1 font-mono text-[11px]"
-              title="Restricted Administrator Portal"
-            >
-              <Lock className="w-3 h-3 text-indigo-400" />
-              <span>Admin Login</span>
-            </button>
+            <span className="text-slate-500">
+              100% Free Forever
+            </span>
             <span className="text-slate-700">•</span>
             <span className="text-slate-500">
               Last Regulatory Audit: Sept 2026

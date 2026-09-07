@@ -158,10 +158,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        setProfile(parsed);
         if (parsed.id === 'creator-guest') {
+          parsed.email = '';
           setIsGuest(true);
         }
+        setProfile(parsed);
       } catch (err) {
         console.error('Error parsing stored profile', err);
       }
@@ -170,7 +171,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const defaultProfile: UserProfile = {
         id: 'creator-guest',
         name: 'MindFlow Creator',
-        email: 'creator@mindflow.ai',
+        email: '',
         plan: 'pro',
         onboardingCompleted: true,
         createdAt: Date.now(),

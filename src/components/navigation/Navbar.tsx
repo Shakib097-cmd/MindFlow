@@ -190,14 +190,6 @@ export const Navbar: React.FC = () => {
           <Search className="w-4 h-4" />
         </button>
 
-        {/* Reusable Visual AI Limit Usage Progress Meter in Navbar */}
-        {(SHOW_PLAN_UI || isAdmin) && (
-          <UsageMeter
-            variant="navbar"
-            onUpgrade={() => setIsPricingOpen(true)}
-          />
-        )}
-
         {/* Real Cloud Sync Status & Sync Now Trigger */}
         <button
           id="navbar-cloud-sync-btn"
@@ -414,20 +406,12 @@ export const Navbar: React.FC = () => {
                 <div className="font-bold text-xs text-slate-900 truncate">
                   {profile?.name || 'MindFlow User'}
                 </div>
-                <div className="text-[11px] text-slate-500 truncate">{profile?.email || 'Free Plan'}</div>
-                {(SHOW_PLAN_UI || isAdmin) && (
-                  <div className="mt-1.5 flex items-center justify-between">
-                    <span className="text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
-                      {profile?.plan || 'pro'} Plan
-                    </span>
-                    <button
-                      onClick={() => setIsPricingOpen(true)}
-                      className="text-[11px] text-indigo-600 hover:underline font-semibold"
-                    >
-                      Manage
-                    </button>
-                  </div>
-                )}
+                <div className="text-[11px] text-slate-500 truncate">{profile?.email || '100% Free Account'}</div>
+                <div className="mt-1.5 flex items-center">
+                  <span className="text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    100% Free Forever
+                  </span>
+                </div>
               </div>
 
               <div className="py-1">
@@ -438,20 +422,6 @@ export const Navbar: React.FC = () => {
                   <LayoutDashboard className="w-3.5 h-3.5 text-slate-400" />
                   Dashboard
                 </button>
-
-                {(SHOW_PLAN_UI || isAdmin) && (
-                  <button
-                    id="user-menu-pricing-btn"
-                    onClick={() => {
-                      setShowUserMenu(false);
-                      setIsPricingOpen(true);
-                    }}
-                    className="w-full text-left px-4 py-1.5 text-xs hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
-                  >
-                    <Crown className="w-3.5 h-3.5 text-amber-500" />
-                    Subscription Plans
-                  </button>
-                )}
                 <button
                   id="user-menu-user-manual-btn"
                   onClick={() => {
@@ -477,22 +447,6 @@ export const Navbar: React.FC = () => {
                   </div>
                   <kbd className="font-mono text-[10px] bg-slate-100 text-slate-500 px-1 py-0.2 rounded border border-slate-200">?</kbd>
                 </button>
-                {isAdmin && (
-                  <button
-                    id="user-menu-admin-btn"
-                    onClick={() => {
-                      setShowUserMenu(false);
-                      setCurrentView('admin');
-                    }}
-                    className="w-full text-left px-4 py-2 text-xs bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 flex items-center justify-between font-bold cursor-pointer border-t border-b border-indigo-200 my-1"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Crown className="w-3.5 h-3.5 text-indigo-600" />
-                      <span>Admin Console</span>
-                    </div>
-                    <span className="text-[9px] bg-indigo-600 text-white px-1.5 py-0.5 rounded font-mono font-bold">OWNER</span>
-                  </button>
-                )}
                 <button
                   id="user-menu-auth-btn"
                   onClick={() => {
